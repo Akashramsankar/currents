@@ -153,6 +153,18 @@
     padding:12px; font-size:15px; letter-spacing:3px; margin:10px 0;}
   .win button{margin-top:8px; padding:11px 22px; border-radius:10px; border:none; cursor:pointer;
     background:linear-gradient(90deg,#3df0ff,#6c7bff); color:#06101f; font-weight:800; letter-spacing:1px;}
+  /* win-modal stats */
+  .winstats{margin:16px 0 4px;}
+  .winstats .srow{display:flex; gap:8px;}
+  .winstats .scell{flex:1; background:#0a0f1c; border:1px solid var(--line); border-radius:10px;
+    padding:9px 4px; display:flex; flex-direction:column; gap:3px;}
+  .winstats .scell b{font-size:24px; font-weight:900; color:var(--spark); line-height:1;}
+  .winstats .scell span{font-size:9px; color:var(--muted); letter-spacing:1px; text-transform:uppercase;}
+  .winstats .sdist{display:flex; justify-content:center; flex-wrap:wrap; gap:4px 10px;
+    margin-top:12px; font-size:11px; color:var(--muted); letter-spacing:.5px;}
+  .winstats .sdist .gd b{color:#cfe0ff;}
+  .winstats .sdist .gd.cur{color:var(--spark);}
+  .winstats .sdist .gd.cur b{color:var(--spark);}
 
   /* help button + rules modal */
   .help-btn{position:fixed; top:14px; right:14px; width:38px; height:38px; border-radius:50%;
@@ -256,8 +268,16 @@
       <div class="grade" id="grade"></div>
       <div class="score" id="winScore"></div>
       <div class="breakdown" id="breakdown"></div>
+      <div class="winstats" id="winStats">
+        <div class="srow">
+          <div class="scell"><b id="stPlayed">0</b><span>Played</span></div>
+          <div class="scell"><b id="stStreak">0</b><span>Streak</span></div>
+          <div class="scell"><b id="stMax">0</b><span>Max Streak</span></div>
+        </div>
+        <div class="sdist" id="stDist"></div>
+      </div>
       <div class="share" id="share"></div>
-      <button id="copyBtn">Copy Result</button>
+      <button id="copyBtn">Share Result</button>
     </div>
   </div>
 
@@ -326,6 +346,34 @@ function loadState(){
     if(s && s.day===dayNumber() && Array.isArray(s.grid)) return s;
   }catch(e){ /* ignore corrupt/blocked storage */ }
   return null;
+}
+
+/* ---------------- Stats & streaks ---------------- */
+const STATS_KEY="currents_stats";
+const GRADE_KEYS=[["eagle","Eagle"],["birdie","Birdie"],["par","Par"],["bogey","Bogey"],["over","Over"]];
+function loadStats(){
+  let s={};
+  try{ s=JSON.parse(localStorage.getItem(STATS_KEY)||"{}")||{}; }catch(e){ s={}; }
+  // defaults / migration for any missing fields
+  if(typeof s.played!=="number") s.played=0;
+  if(typeof s.currentStreak!=="number") s.currentStreak=0;
+  if(typeof s.maxStreak!=="number") s.maxStreak=0;
+  if(typeof s.lastWonDay!=="number") s.lastWonDay=-999;
+  if(!s.dist||typeof s.dist!=="object") s.dist={};
+  GRADE_KEYS.forEach(([k])=>{ if(typeof s.dist[k]!=="number") s.dist[k]=0; });
+  return s;
+}
+function gradeKey(diff){ return diff<=-2?"eagle":diff===-1?"birdie":diff===0?"par":diff===1?"bogey":"over"; }
+// Records exactly one win per day; called from winGame (the live win moment only).
+function recordWin(diff){
+  const s=loadStats(), day=dayNumber();
+  if(s.lastWonDay===day) return;            // already counted today (idempotent)
+  s.currentStreak = (s.lastWonDay===day-1) ? s.currentStreak+1 : 1;
+  s.maxStreak = Math.max(s.maxStreak, s.currentStreak);
+  s.played++;
+  s.dist[gradeKey(diff)]++;
+  s.lastWonDay = day;
+  try{ localStorage.setItem(STATS_KEY, JSON.stringify(s)); }catch(e){ /* storage blocked */ }
 }
 
 function buildGrid(p){
@@ -600,6 +648,7 @@ function endTrace(){
 function winGame(){
   won=true;
   $("hintBtn").disabled=true;
+  recordWin(moves-par);   // count this win / update streak once, at the live win moment
   saveState();
   animateWin();
 }
@@ -656,8 +705,16 @@ function showWin(){
     diff===0?"Perfectly efficient — dead on Par.":
     diff<0?`You beat Par by ${-diff} move${diff<-1?"s":""}!`:
     `${diff} over Par — you got there in the end.`;
+  // stats panel
+  const s=loadStats(), curKey=gradeKey(diff);
+  $("stPlayed").textContent=s.played;
+  $("stStreak").textContent=s.currentStreak;
+  $("stMax").textContent=s.maxStreak;
+  $("stDist").innerHTML=GRADE_KEYS.map(([k,l])=>
+    `<span class="gd${k===curKey?" cur":""}">${l} <b>${s.dist[k]||0}</b></span>`).join("");
+
   const dots = diff<=0 ? "🟢".repeat(Math.max(1,moves)) : "🟢".repeat(par)+"⚪".repeat(diff);
-  $("share").textContent=`Currents ${dateStr()}\n${g} · ${moves}/${par}\n${dots}`;
+  $("share").textContent=`Currents #${dayNumber()+1}\n${g} · ${moves}/${par} · 🔥${s.currentStreak}\n${dots}`;
   $("modal").classList.add("show");
 }
 
@@ -680,10 +737,28 @@ $("hintBtn").addEventListener("click",()=>{
   saveState();
   toast(`Letter ${hintLevel} of 9 revealed.`);
 });
-$("copyBtn").addEventListener("click",()=>{
-  navigator.clipboard?.writeText($("share").textContent).then(
-    ()=>toast("Result copied!"), ()=>toast("Copy failed",true));
-});
+async function shareResult(){
+  const text=$("share").textContent;
+  // native share sheet on supported devices (mostly mobile)
+  if(navigator.share && navigator.canShare && navigator.canShare({text})){
+    try{ await navigator.share({text}); return; }
+    catch(err){ if(err && err.name==="AbortError") return; } // user cancelled — don't fall through
+  }
+  // fallback: clipboard
+  if(navigator.clipboard && window.isSecureContext){
+    try{ await navigator.clipboard.writeText(text); toast("Result copied!"); return; }
+    catch(e){ /* fall through to legacy copy */ }
+  }
+  // legacy fallback for non-secure contexts (e.g. file://)
+  try{
+    const ta=document.createElement("textarea");
+    ta.value=text; ta.style.position="fixed"; ta.style.opacity="0";
+    document.body.appendChild(ta); ta.select();
+    document.execCommand("copy"); document.body.removeChild(ta);
+    toast("Result copied!");
+  }catch(e){ toast("Copy failed",true); }
+}
+$("copyBtn").addEventListener("click",shareResult);
 $("modal").addEventListener("click",e=>{ if(e.target.id==="modal") $("modal").classList.remove("show"); });
 
 // rules modal
