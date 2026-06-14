@@ -302,11 +302,30 @@ const $=id=>document.getElementById(id);
 const gridEl=$("grid"), overlay=$("overlay"), stage=$("stage");
 
 /* ---------------- Puzzle selection (by date) ---------------- */
-function todayIndex(){
+function dayNumber(){
   const epoch=new Date(2026,0,1);
-  const now=new Date();
-  const days=Math.floor((now-epoch)/86400000);
+  return Math.floor((new Date()-epoch)/86400000);
+}
+function todayIndex(){
+  const days=dayNumber();
   return ((days%PUZZLES.length)+PUZZLES.length)%PUZZLES.length;
+}
+
+/* ---------------- Progress persistence ----------------
+   Saved per day so refreshing resumes the in-progress board; a new day
+   (different puzzle) discards the old save automatically.               */
+const SAVE_KEY="currents_progress";
+function saveState(){
+  try{
+    localStorage.setItem(SAVE_KEY, JSON.stringify({day:dayNumber(),grid,moves,hintLevel,won}));
+  }catch(e){ /* localStorage blocked — progress just won't persist */ }
+}
+function loadState(){
+  try{
+    const s=JSON.parse(localStorage.getItem(SAVE_KEY)||"null");
+    if(s && s.day===dayNumber() && Array.isArray(s.grid)) return s;
+  }catch(e){ /* ignore corrupt/blocked storage */ }
+  return null;
 }
 
 function buildGrid(p){
@@ -405,6 +424,7 @@ function doMove(type,i,dir,count=1){
   for(let k=0;k<count;k++) shift(type,i,dir);
   moves++; $("moves").textContent=moves;
   fullRender();
+  saveState();
 }
 
 /* ---------------- Edge arrows ---------------- */
@@ -573,6 +593,7 @@ function endTrace(){
 function winGame(){
   won=true;
   $("hintBtn").disabled=true;
+  saveState();
   animateWin();
 }
 function animateWin(){
@@ -649,6 +670,7 @@ $("hintBtn").addEventListener("click",()=>{
   $("hintBtn").textContent=`💡 Hint (${hintLevel}/9)`;
   $("hintBtn").classList.toggle("on",hintLevel>0);
   applyHint();
+  saveState();
   toast(`Letter ${hintLevel} of 9 revealed.`);
 });
 $("copyBtn").addEventListener("click",()=>{
@@ -699,10 +721,24 @@ function init(){
 
   buildGrid(PUZZLES_TODAY);
   $("par").textContent=par;
-  moves=0; $("moves").textContent=0;
-  hintLevel=0; $("hintBtn").textContent="💡 Hint"; $("hintBtn").classList.remove("on"); $("hintBtn").disabled=false;
+
+  // resume in-progress board if the player already started today's puzzle
+  const saved=loadState();
+  if(saved){
+    grid=saved.grid; moves=saved.moves; hintLevel=saved.hintLevel; won=saved.won;
+  }else{
+    moves=0; hintLevel=0; won=false;
+  }
+
+  $("moves").textContent=moves;
+  if(hintLevel>0){ $("hintBtn").textContent=`💡 Hint (${hintLevel}/9)`; $("hintBtn").classList.add("on"); }
+  else { $("hintBtn").textContent="💡 Hint"; $("hintBtn").classList.remove("on"); }
+  $("hintBtn").disabled=won;
+
   buildArrows();
   fullRender();
+
+  if(won) showWin(); // already solved today — show the result instead of replaying
 }
 init();
 </script>
