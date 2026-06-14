@@ -549,7 +549,7 @@ function cancelDrag(){
 /* --- trace --- */
 function startTrace(rc){ trace={cells:[rc]}; renderTrace(); }
 function moveTrace(x,y){
-  if(!trace) return;
+  if(!trace || won) return;
   const rc=cellFromPos(x,y); if(!rc) return;
   const cells=trace.cells; const last=cells[cells.length-1];
   if(rc[0]===last[0]&&rc[1]===last[1]) return;
@@ -561,7 +561,14 @@ function moveTrace(x,y){
   // must be orthogonally adjacent and unused
   const adj=Math.abs(rc[0]-last[0])+Math.abs(rc[1]-last[1])===1;
   const used=cells.some(([r,c])=>r===rc[0]&&c===rc[1]);
-  if(adj && !used){ cells.push(rc); renderTrace(); }
+  if(adj && !used){
+    cells.push(rc); renderTrace();
+    // lock in the win the instant the full word is spelled — don't let the line continue
+    if(cells.length===phrase.length && cells.map(([r,c])=>grid[r][c].ch).join("")===phrase){
+      winGame();      // reads trace.cells synchronously for the win animation
+      trace=null;     // stop extending the trace past the completed word
+    }
+  }
 }
 function renderTrace(){
   tileEls.forEach(t=>t.classList.remove("in-path"));
