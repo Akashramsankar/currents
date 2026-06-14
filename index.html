@@ -572,6 +572,7 @@ function endTrace(){
 /* ---------------- Win ---------------- */
 function winGame(){
   won=true;
+  $("hintBtn").disabled=true;
   animateWin();
 }
 function animateWin(){
@@ -699,7 +700,7 @@ function init(){
   buildGrid(PUZZLES_TODAY);
   $("par").textContent=par;
   moves=0; $("moves").textContent=0;
-  hintLevel=0; $("hintBtn").textContent="💡 Hint"; $("hintBtn").classList.remove("on");
+  hintLevel=0; $("hintBtn").textContent="💡 Hint"; $("hintBtn").classList.remove("on"); $("hintBtn").disabled=false;
   buildArrows();
   fullRender();
 }
