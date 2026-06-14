@@ -58,6 +58,7 @@
     position:relative; width:var(--span); height:var(--span);
     overflow:hidden; border-radius:14px;
     background:rgba(255,255,255,.015); margin:0 auto;
+    touch-action:none; /* prevent page scroll/zoom so vertical drags + tracing work on touch */
   }
   .tile{
     position:absolute; width:var(--cell); height:var(--cell);
