@@ -383,7 +383,11 @@ function renderSparks(){
       const nr=r+dr,nc=c+dc; if(nr>3||nc>3) continue;
       const b=grid[nr][nc]; if(!b.target) continue;
       if(bigrams.has(a.ch+b.ch)){
-        const [x1,y1]=center(r,c), [x2,y2]=center(nr,nc);
+        const [cx1,cy1]=center(r,c), [cx2,cy2]=center(nr,nc);
+        // shorten the spark so it sits in the gap and doesn't cover the letters
+        const t=0.34; // fraction of the way in from each center
+        const x1=cx1+(cx2-cx1)*t, y1=cy1+(cy2-cy1)*t;
+        const x2=cx2+(cx1-cx2)*t, y2=cy2+(cy1-cy2)*t;
         const ln=document.createElementNS("http://www.w3.org/2000/svg","line");
         ln.setAttribute("class","spark");
         ln.setAttribute("x1",x1);ln.setAttribute("y1",y1);
