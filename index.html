@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<meta name="theme-color" content="#0a0e1a" />
+<title>Currents — Daily Word Circuit</title>
+<style>
+  :root{
+    --bg:#0a0e1a; --panel:#121826; --tile:#1c2436; --tile2:#232c42;
+    --text:#e8edf7; --muted:#7e8aa6; --line:#2a3450;
+    --spark:#3df0ff; --target:#9fb4e6; --decoy:#5a6585;
+    --trace:#6c7bff; --good:#39e6a8; --bad:#ff5d6c; --gold:#ffcf4d;
+    --cell:70px; --gap:8px; --pitch:78px; --span:304px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; height:100%;}
+  body{
+    background:radial-gradient(1200px 600px at 50% -10%, #16203a 0%, var(--bg) 60%);
+    color:var(--text); font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,Helvetica,Arial,sans-serif;
+    display:flex; flex-direction:column; align-items:center; min-height:100%;
+    padding:18px 14px 40px; gap:14px; touch-action:manipulation;
+  }
+  header{text-align:center;}
+  h1{
+    margin:0; font-size:30px; letter-spacing:6px; font-weight:800;
+    background:linear-gradient(90deg,#3df0ff,#6c7bff,#9b5cff);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    text-transform:uppercase;
+  }
+  .sub{color:var(--muted); font-size:12px; letter-spacing:3px; margin-top:2px;}
+
+  .card{
+    background:linear-gradient(180deg,var(--panel),#0e1422);
+    border:1px solid var(--line); border-radius:16px; padding:16px 18px;
+    width:min(420px,94vw); box-shadow:0 10px 40px rgba(0,0,0,.45);
+  }
+  .clue-label{font-size:11px; letter-spacing:2px; color:var(--muted); text-transform:uppercase;}
+  .clue{font-size:18px; font-weight:600; margin:6px 0 12px; line-height:1.35;}
+  .blanks{display:flex; flex-wrap:wrap; gap:14px; align-items:flex-end;}
+  .word{display:flex; gap:5px;}
+  .blank{
+    width:16px; height:3px; background:var(--line); border-radius:2px;
+    transition:background .3s;
+  }
+  .word.solved .blank{background:var(--good); box-shadow:0 0 8px var(--good);}
+  .count{color:var(--muted); font-size:13px; margin-left:6px; align-self:center;}
+
+  .stats{display:flex; justify-content:space-between; align-items:center; width:min(420px,94vw); padding:0 4px;}
+  .stat{display:flex; flex-direction:column; align-items:center; gap:2px;}
+  .stat .v{font-size:24px; font-weight:800;}
+  .stat .l{font-size:10px; letter-spacing:2px; color:var(--muted); text-transform:uppercase;}
+  .stat.par .v{color:var(--gold);}
+
+  /* Grid */
+  .stage{position:relative; padding:30px;}
+  #grid{
+    position:relative; width:var(--span); height:var(--span);
+    overflow:hidden; border-radius:14px;
+    background:rgba(255,255,255,.015); margin:0 auto;
+  }
+  .tile{
+    position:absolute; width:var(--cell); height:var(--cell);
+    display:flex; align-items:center; justify-content:center;
+    font-size:30px; font-weight:800; border-radius:12px;
+    background:linear-gradient(180deg,var(--tile2),var(--tile));
+    border:1px solid #2c3650; color:#d4ddf2;
+    user-select:none; cursor:grab; will-change:transform;
+    transition:transform .16s cubic-bezier(.2,.8,.2,1), background .2s, color .2s, opacity .3s, box-shadow .2s;
+  }
+  .tile.ghost{transition:none; pointer-events:none; opacity:.95;}
+  .tile.dragging,.tile.drag-ghost{transition:none; cursor:grabbing; z-index:5;}
+  .tile.revealed{
+    color:#9be8ff; border-color:var(--spark);
+    box-shadow:0 0 14px rgba(61,240,255,.45);
+  }
+  .tile.in-path{
+    background:linear-gradient(180deg,#3a45ff,#2a32c4);
+    color:#fff; box-shadow:0 0 16px rgba(108,123,255,.8); border-color:#8d97ff;
+  }
+  body.trace-mode .tile{cursor:crosshair;}
+
+  /* SVG overlay for sparks + trace */
+  #overlay{position:absolute; inset:0; pointer-events:none; z-index:4;}
+  .spark{stroke:var(--spark); stroke-width:5; stroke-linecap:round;
+    filter:drop-shadow(0 0 6px var(--spark)); opacity:.9;
+    stroke-dasharray:2 0; animation:pulse 1.6s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{opacity:.55}50%{opacity:1}}
+  .tracepath{stroke:var(--trace); stroke-width:10; stroke-linecap:round; stroke-linejoin:round;
+    fill:none; filter:drop-shadow(0 0 8px var(--trace));}
+  /* victory circuit */
+  .winline{stroke:url(#winGrad); stroke-width:12; stroke-linecap:round; stroke-linejoin:round;
+    fill:none; filter:drop-shadow(0 0 12px var(--good));}
+  .spark.fading{animation:none; transition:opacity .5s; opacity:0;}
+  .tile.cleared{scale:.55; opacity:0; pointer-events:none;}
+  @keyframes wpop{
+    0%{scale:1; box-shadow:0 0 0 rgba(57,230,168,0);}
+    45%{scale:1.2; box-shadow:0 0 28px rgba(57,230,168,.95);}
+    100%{scale:1; box-shadow:0 0 16px rgba(57,230,168,.65);}
+  }
+  .tile.won{
+    background:linear-gradient(180deg,#2ee6a0,#15b07a)!important;
+    color:#06121d!important; border-color:#8dffd2!important;
+    animation:wpop .55s cubic-bezier(.2,.9,.2,1) forwards;
+  }
+  #grid.celebrate{animation:gridflash .6s ease;}
+  @keyframes gridflash{0%,100%{box-shadow:none;}40%{box-shadow:0 0 60px 10px rgba(57,230,168,.5);}}
+
+  /* edge shift arrows */
+  .arrow{
+    position:absolute; width:26px; height:26px; border-radius:50%;
+    background:#1b2238; border:1px solid var(--line); color:var(--muted);
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+    font-size:13px; z-index:6; opacity:.55; transition:.15s;
+  }
+  .arrow:hover{opacity:1; color:var(--spark); border-color:var(--spark); transform:scale(1.12);}
+  body.trace-mode .arrow{display:none;}
+
+  .controls{display:flex; gap:10px; width:min(420px,94vw);}
+  button.act{
+    flex:1; padding:12px; border-radius:12px; border:1px solid var(--line);
+    background:#161d30; color:var(--text); font-size:14px; font-weight:700;
+    cursor:pointer; letter-spacing:1px; transition:.15s;
+  }
+  button.act:hover{border-color:var(--spark); color:var(--spark);}
+  button.act.on{background:linear-gradient(180deg,#3a45ff,#2a32c4); color:#fff; border-color:#8d97ff;}
+  button.act:disabled{opacity:.4; cursor:not-allowed;}
+
+  .hint{color:var(--muted); font-size:12px; text-align:center; width:min(420px,94vw); line-height:1.5;}
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:#1b2238; border:1px solid var(--line); padding:10px 18px; border-radius:10px;
+    opacity:0; transition:.25s; pointer-events:none; font-size:14px;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+  .toast.bad{border-color:var(--bad); color:#ffb3ba;}
+
+  /* win modal */
+  .modal{position:fixed; inset:0; background:rgba(5,8,16,.8); backdrop-filter:blur(4px);
+    display:none; align-items:center; justify-content:center; z-index:20; padding:20px;}
+  .modal.show{display:flex;}
+  .win{background:linear-gradient(180deg,var(--panel),#0c111d); border:1px solid var(--line);
+    border-radius:20px; padding:28px; width:min(380px,92vw); text-align:center;
+    box-shadow:0 20px 60px rgba(0,0,0,.6);}
+  .win h2{margin:0 0 4px; font-size:26px; letter-spacing:2px;}
+  .win .score{font-size:48px; font-weight:900; margin:8px 0;}
+  .win .phrase{font-size:20px; letter-spacing:3px; font-weight:700; color:var(--spark); margin:6px 0 14px;}
+  .win .grade{display:inline-block; padding:6px 16px; border-radius:999px; font-weight:800; letter-spacing:2px;
+    margin-bottom:14px; font-size:14px;}
+  .win .breakdown{color:var(--muted); font-size:13px; line-height:1.6; margin:12px 0;}
+  .share{font-family:monospace; background:#0a0f1c; border:1px solid var(--line); border-radius:10px;
+    padding:12px; font-size:15px; letter-spacing:3px; margin:10px 0;}
+  .win button{margin-top:8px; padding:11px 22px; border-radius:10px; border:none; cursor:pointer;
+    background:linear-gradient(90deg,#3df0ff,#6c7bff); color:#06101f; font-weight:800; letter-spacing:1px;}
+
+  /* help button + rules modal */
+  .help-btn{position:fixed; top:14px; right:14px; width:38px; height:38px; border-radius:50%;
+    background:#161d30; border:1px solid var(--line); color:var(--spark); font-size:18px;
+    font-weight:800; cursor:pointer; z-index:15; transition:.15s;}
+  .help-btn:hover{border-color:var(--spark); transform:scale(1.08);}
+  .rules{text-align:left; max-height:86vh; overflow-y:auto;}
+  .rules h2{text-align:center; margin-bottom:14px;}
+  .rules .step{display:flex; gap:12px; margin:14px 0; align-items:flex-start;}
+  .rules .ic{font-size:22px; flex:0 0 28px; text-align:center; line-height:1.3;}
+  .rules .step .t b{color:var(--spark);}
+  .rules .step .t{font-size:14px; line-height:1.5;}
+  .rules .step .t span{color:var(--muted);}
+  .rules .goal{background:#0f1626; border:1px solid var(--line); border-radius:12px;
+    padding:12px 14px; font-size:14px; line-height:1.5; margin-bottom:6px;}
+  .rules .goal b{color:var(--gold);}
+  .rules button{display:block; width:100%; margin-top:18px;}
+</style>
+</head>
+<body>
+  <button class="help-btn" id="helpBtn" title="How to play">?</button>
+
+  <header>
+    <h1>Currents</h1>
+    <div class="sub" id="dateLabel">DAILY WORD CIRCUIT</div>
+  </header>
+
+  <div class="modal" id="rulesModal">
+    <div class="win rules">
+      <h2>How to Play</h2>
+      <div class="goal">🎯 <b>Goal:</b> Today's clue has a hidden answer. Slide the grid to line up the
+        answer's letters, then trace them in one unbroken line — in as few moves as possible.</div>
+
+      <div class="step"><div class="ic">📖</div><div class="t">
+        <b>Read the clue.</b> <span>The blanks below it show how many letters each word has, e.g. (4, 5).</span></div></div>
+
+      <div class="step"><div class="ic">↔️</div><div class="t">
+        <b>Shift the grid.</b> <span>Swipe any row or column — or tap the edge arrows — to slide letters.
+        They wrap around the edges. Each shift counts as one move.</span></div></div>
+
+      <div class="step"><div class="ic">⚡</div><div class="t">
+        <b>Follow the sparks.</b> <span>A glowing line appears between two neighbouring tiles when they're
+        next to each other in the answer. Use them to line up the whole phrase into one connected chain.</span></div></div>
+
+      <div class="step"><div class="ic">✏️</div><div class="t">
+        <b>Trace the answer.</b> <span>Tap "⚡ Trace Phrase", then drag from the first letter to the last —
+        up, down, left or right only (no diagonals, no reusing a tile). Spell the answer to win.</span></div></div>
+
+      <div class="step"><div class="ic">💡</div><div class="t">
+        <b>Stuck?</b> <span>The Hint button reveals one answer letter at a time.</span></div></div>
+
+      <div class="step"><div class="ic">⛳</div><div class="t">
+        <b>Beat Par.</b> <span>Par is the target number of moves. Solve it in fewer for a Birdie or Eagle!</span></div></div>
+
+      <button id="rulesClose">Got it — let's play</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="clue-label">Today's Clue</div>
+    <div class="clue" id="clue">…</div>
+    <div class="blanks" id="blanks"></div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><span class="v" id="moves">0</span><span class="l">Moves</span></div>
+    <div class="stat par"><span class="v" id="par">–</span><span class="l">Par</span></div>
+    <div class="stat"><span class="v" id="sparkCount">0</span><span class="l">Sparks</span></div>
+  </div>
+
+  <div class="stage" id="stage">
+    <div id="grid">
+      <svg id="overlay" viewBox="0 0 304 304">
+        <defs>
+          <linearGradient id="winGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#3df0ff"/>
+            <stop offset="0.5" stop-color="#39e6a8"/>
+            <stop offset="1" stop-color="#ffcf4d"/>
+          </linearGradient>
+        </defs>
+      </svg>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="act" id="traceBtn">⚡ Trace Phrase</button>
+    <button class="act" id="hintBtn">💡 Hint</button>
+  </div>
+
+  <div class="hint" id="modeHint">
+    Swipe rows &amp; columns (or tap the edge arrows) to line up letters. Watch for glowing
+    <span style="color:var(--spark)">sparks</span> between neighbours that belong together.
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <div class="modal" id="modal">
+    <div class="win">
+      <h2>Circuit Complete!</h2>
+      <div class="phrase" id="winPhrase"></div>
+      <div class="grade" id="grade"></div>
+      <div class="score" id="winScore"></div>
+      <div class="breakdown" id="breakdown"></div>
+      <div class="share" id="share"></div>
+      <button id="copyBtn">Copy Result</button>
+    </div>
+  </div>
+
+<script>
+"use strict";
+
+/* ---------------- Puzzle data (hardcoded daily list) ----------------
+   Each phrase has exactly 9 letters -> 9 target tiles + 7 decoys = 16.
+   `decoys` = 7 filler letters. `scramble` = moves applied to the solved
+   layout to create the start position; its length is Par.            */
+const PUZZLES = [
+  { clue:"When you're having fun, this passes fast.",
+    words:["TIME","FLIES"], decoys:"QBRKXWZ",
+    scramble:[["row",0,1],["col",3,-1],["row",2,1],["col",1,1]] },
+  { clue:"Friends gather round the table to play.",
+    words:["GAME","NIGHT"], decoys:"PVZKWXJ",
+    scramble:[["col",0,1],["row",1,-1],["col",2,1],["row",3,1],["col",1,-1]] },
+  { clue:"An approaching mass of chilly weather.",
+    words:["COLD","FRONT"], decoys:"BKWXZQV",
+    scramble:[["row",0,-1],["col",1,1],["row",2,-1],["col",3,1]] },
+  { clue:"An unbeatable line-up of all-stars.",
+    words:["DREAM","TEAM"], decoys:"PKWXZQB",
+    scramble:[["col",2,1],["row",0,1],["col",0,-1],["row",3,-1],["row",1,1]] },
+];
+
+/* Fixed solved layout: a continuous, non-crossing orthogonal path of 9 cells
+   (the intended trace). Targets go here in phrase order; decoys fill the rest. */
+const PATH = [[0,0],[0,1],[0,2],[0,3],[1,3],[1,2],[1,1],[1,0],[2,0]];
+
+const PITCH=78, CELL=70, SPAN=304, TOTAL=4*PITCH;
+
+/* ---------------- State ---------------- */
+let grid;            // 4x4 of {ch,target,idx}
+let phrase;          // letters only, e.g. "TIMEFLIES"
+let bigrams;         // set of "idxA-idxB" adjacency targets (not used directly)
+let moves=0, par=0;
+let mode="shift";    // or "trace"
+let hintLevel=0;     // how many target letters revealed (0..9)
+let won=false;
+
+const $=id=>document.getElementById(id);
+const gridEl=$("grid"), overlay=$("overlay"), stage=$("stage");
+
+/* ---------------- Puzzle selection (by date) ---------------- */
+function todayIndex(){
+  const epoch=new Date(2026,0,1);
+  const now=new Date();
+  const days=Math.floor((now-epoch)/86400000);
+  return ((days%PUZZLES.length)+PUZZLES.length)%PUZZLES.length;
+}
+
+function buildGrid(p){
+  phrase=p.words.join("").toUpperCase();
+  const letters=phrase.split("");
+  // consecutive-letter pairs of the phrase (both directions) -> what makes a spark
+  bigrams=new Set();
+  for(let i=0;i<letters.length-1;i++){
+    bigrams.add(letters[i]+letters[i+1]);
+    bigrams.add(letters[i+1]+letters[i]);
+  }
+  grid=Array.from({length:4},()=>Array(4).fill(null));
+  PATH.forEach(([r,c],i)=>{ grid[r][c]={ch:letters[i],target:true,idx:i}; });
+  const decoys=p.decoys.toUpperCase().split(""); let d=0;
+  for(let r=0;r<4;r++)for(let c=0;c<4;c++)
+    if(!grid[r][c]) grid[r][c]={ch:decoys[d++]||"?",target:false,idx:-1};
+  // scramble into start position
+  p.scramble.forEach(([type,i,dir])=> shift(type,i,dir));
+  par=p.scramble.length;
+}
+
+/* ---------------- Grid operations ---------------- */
+function shift(type,i,dir){
+  if(type==="row"){
+    const row=grid[i];
+    if(dir>0) row.unshift(row.pop()); else row.push(row.shift());
+  }else{
+    const col=[grid[0][i],grid[1][i],grid[2][i],grid[3][i]];
+    if(dir>0) col.unshift(col.pop()); else col.push(col.shift());
+    for(let r=0;r<4;r++) grid[r][i]=col[r];
+  }
+}
+
+/* ---------------- Rendering ---------------- */
+let tileEls=[]; // flat list synced to grid via data attrs
+function fullRender(){
+  // remove old tiles (keep svg)
+  [...gridEl.querySelectorAll(".tile")].forEach(t=>t.remove());
+  tileEls=[];
+  for(let r=0;r<4;r++)for(let c=0;c<4;c++){
+    const cell=grid[r][c];
+    const el=document.createElement("div");
+    el.className="tile"+(cell.target?"":" decoy");
+    el.textContent=cell.ch;
+    el.dataset.r=r; el.dataset.c=c;
+    el.style.transform=`translate(${c*PITCH}px,${r*PITCH}px)`;
+    gridEl.appendChild(el);
+    tileEls.push(el);
+  }
+  applyHint();
+  renderSparks();
+}
+
+function tileAt(r,c){ return tileEls.find(t=>+t.dataset.r===r&&+t.dataset.c===c); }
+
+function applyHint(){
+  // reveal target tiles in phrase order, one per hint level
+  tileEls.forEach(t=>{
+    const cell=grid[+t.dataset.r][+t.dataset.c];
+    t.classList.toggle("revealed", cell.target && cell.idx < hintLevel);
+  });
+}
+
+function center(r,c){ return [c*PITCH+CELL/2, r*PITCH+CELL/2]; }
+
+function renderSparks(){
+  // clear previous spark lines (keep trace path if any)
+  [...overlay.querySelectorAll(".spark")].forEach(s=>s.remove());
+  let n=0;
+  const dirs=[[0,1],[1,0]]; // check right + down to avoid dupes
+  for(let r=0;r<4;r++)for(let c=0;c<4;c++){
+    const a=grid[r][c]; if(!a.target) continue;
+    for(const [dr,dc] of dirs){
+      const nr=r+dr,nc=c+dc; if(nr>3||nc>3) continue;
+      const b=grid[nr][nc]; if(!b.target) continue;
+      if(bigrams.has(a.ch+b.ch)){
+        const [x1,y1]=center(r,c), [x2,y2]=center(nr,nc);
+        const ln=document.createElementNS("http://www.w3.org/2000/svg","line");
+        ln.setAttribute("class","spark");
+        ln.setAttribute("x1",x1);ln.setAttribute("y1",y1);
+        ln.setAttribute("x2",x2);ln.setAttribute("y2",y2);
+        overlay.appendChild(ln);
+        n++;
+      }
+    }
+  }
+  $("sparkCount").textContent=n;
+}
+
+/* ---------------- Move counting ---------------- */
+function doMove(type,i,dir,count=1){
+  for(let k=0;k<count;k++) shift(type,i,dir);
+  moves++; $("moves").textContent=moves;
+  fullRender();
+}
+
+/* ---------------- Edge arrows ---------------- */
+function buildArrows(){
+  [...stage.querySelectorAll(".arrow")].forEach(a=>a.remove());
+  const base=30; // stage padding
+  const mk=(txt,x,y,fn)=>{
+    const a=document.createElement("div");
+    a.className="arrow"; a.textContent=txt;
+    a.style.left=(x-13)+"px"; a.style.top=(y-13)+"px";
+    a.addEventListener("click",fn);
+    stage.appendChild(a);
+  };
+  for(let r=0;r<4;r++){
+    const y=base+r*PITCH+CELL/2;
+    mk("‹", base-16, y, ()=>doMove("row",r,-1));
+    mk("›", base+SPAN+16, y, ()=>doMove("row",r,1));
+  }
+  for(let c=0;c<4;c++){
+    const x=base+c*PITCH+CELL/2;
+    mk("∧", x, base-16, ()=>doMove("col",c,-1));
+    mk("∨", x, base+SPAN+16, ()=>doMove("col",c,1));
+  }
+}
+
+/* ---------------- Pointer: shift (drag) + trace ---------------- */
+let drag=null;   // {axis,index,startX,startY,ghosts,laneTiles}
+let trace=null;  // {cells:[[r,c]], poly}
+
+function localPos(e){
+  const rect=gridEl.getBoundingClientRect();
+  return [e.clientX-rect.left, e.clientY-rect.top];
+}
+function cellFromPos(x,y){
+  const c=Math.floor(x/PITCH), r=Math.floor(y/PITCH);
+  if(r<0||r>3||c<0||c>3) return null;
+  // ignore the gap zone
+  if(x-c*PITCH>CELL || y-r*PITCH>CELL) return null;
+  return [r,c];
+}
+
+gridEl.addEventListener("pointerdown",e=>{
+  if(won) return;
+  const [x,y]=localPos(e);
+  const rc=cellFromPos(x,y); if(!rc) return;
+  gridEl.setPointerCapture(e.pointerId);
+  if(mode==="trace"){ startTrace(rc); }
+  else { startDrag(rc,x,y); }
+});
+gridEl.addEventListener("pointermove",e=>{
+  const [x,y]=localPos(e);
+  if(mode==="trace" && trace){ moveTrace(x,y); }
+  else if(drag){ moveDrag(x,y); }
+});
+gridEl.addEventListener("pointerup",e=>{
+  if(mode==="trace" && trace){ endTrace(); }
+  else if(drag){ endDrag(); }
+});
+gridEl.addEventListener("pointercancel",()=>{ if(drag) cancelDrag(); trace=null; renderTrace(); });
+
+/* --- shift drag --- */
+function startDrag(rc,x,y){ drag={axis:null,index:null,r:rc[0],c:rc[1],startX:x,startY:y,ghosts:[]}; }
+
+function laneTiles(axis,index){
+  return tileEls.filter(t=> axis==="row" ? +t.dataset.r===index : +t.dataset.c===index);
+}
+function moveDrag(x,y){
+  if(!drag) return;
+  let dx=x-drag.startX, dy=y-drag.startY;
+  if(!drag.axis){
+    if(Math.abs(dx)<6 && Math.abs(dy)<6) return;
+    drag.axis = Math.abs(dx)>Math.abs(dy) ? "row":"col";
+    drag.index = drag.axis==="row" ? drag.r : drag.c;
+    drag.tiles = laneTiles(drag.axis,drag.index);
+    drag.tiles.forEach(t=>t.classList.add("dragging"));
+    // build ghosts (one clone per lane tile) for seamless wrap
+    drag.tiles.forEach(t=>{
+      const g=t.cloneNode(true); g.classList.add("drag-ghost"); g.classList.remove("dragging");
+      gridEl.appendChild(g); drag.ghosts.push(g);
+    });
+  }
+  const delta = drag.axis==="row" ? dx : dy;
+  drag.delta=delta;
+  drag.tiles.forEach((t,i)=>{
+    const r=+t.dataset.r, c=+t.dataset.c;
+    positionLane(t,r,c,delta,0);
+  });
+  drag.ghosts.forEach((g,i)=>{
+    const t=drag.tiles[i]; const r=+t.dataset.r, c=+t.dataset.c;
+    // ghost offset by +TOTAL or -TOTAL depending on drag sign to fill the gap
+    const off = delta>=0 ? -TOTAL : TOTAL;
+    positionLane(g,r,c,delta,off);
+  });
+}
+function positionLane(el,r,c,delta,off){
+  if(drag.axis==="row"){
+    el.style.transform=`translate(${c*PITCH+delta+off}px,${r*PITCH}px)`;
+  }else{
+    el.style.transform=`translate(${c*PITCH}px,${r*PITCH+delta+off}px)`;
+  }
+}
+function endDrag(){
+  if(!drag){return;}
+  if(!drag.axis){ drag=null; return; }
+  const steps=Math.round(drag.delta/PITCH);
+  drag.ghosts.forEach(g=>g.remove());
+  drag.tiles.forEach(t=>t.classList.remove("dragging"));
+  if(steps!==0){
+    const dir = steps>0?1:-1;
+    doMove(drag.axis,drag.index,dir,Math.abs(steps));
+  }else{
+    fullRender(); // snap back
+  }
+  drag=null;
+}
+function cancelDrag(){
+  if(!drag) return;
+  drag.ghosts.forEach(g=>g.remove());
+  drag=null; fullRender();
+}
+
+/* --- trace --- */
+function startTrace(rc){ trace={cells:[rc]}; renderTrace(); }
+function moveTrace(x,y){
+  if(!trace) return;
+  const rc=cellFromPos(x,y); if(!rc) return;
+  const cells=trace.cells; const last=cells[cells.length-1];
+  if(rc[0]===last[0]&&rc[1]===last[1]) return;
+  // backtrack: stepping onto previous cell removes the last
+  if(cells.length>=2){
+    const prev=cells[cells.length-2];
+    if(rc[0]===prev[0]&&rc[1]===prev[1]){ cells.pop(); renderTrace(); return; }
+  }
+  // must be orthogonally adjacent and unused
+  const adj=Math.abs(rc[0]-last[0])+Math.abs(rc[1]-last[1])===1;
+  const used=cells.some(([r,c])=>r===rc[0]&&c===rc[1]);
+  if(adj && !used){ cells.push(rc); renderTrace(); }
+}
+function renderTrace(){
+  tileEls.forEach(t=>t.classList.remove("in-path"));
+  [...overlay.querySelectorAll(".tracepath")].forEach(p=>p.remove());
+  if(!trace || trace.cells.length===0) return;
+  let pts="";
+  trace.cells.forEach(([r,c])=>{
+    const [x,y]=center(r,c); pts+=`${x},${y} `;
+    const t=tileAt(r,c); if(t) t.classList.add("in-path");
+  });
+  if(trace.cells.length>1){
+    const pl=document.createElementNS("http://www.w3.org/2000/svg","polyline");
+    pl.setAttribute("class","tracepath");
+    pl.setAttribute("points",pts.trim());
+    overlay.appendChild(pl);
+  }
+}
+function endTrace(){
+  if(!trace){return;}
+  const spelled=trace.cells.map(([r,c])=>grid[r][c].ch).join("");
+  if(spelled===phrase){ winGame(); }
+  else {
+    if(trace.cells.length>1) toast("Not quite — keep shifting.", true);
+    trace=null; renderTrace();
+  }
+}
+
+/* ---------------- Win ---------------- */
+function winGame(){
+  won=true;
+  animateWin();
+}
+function animateWin(){
+  const cells=trace.cells.slice();
+  // remove the in-progress blue trace; fade existing sparks
+  [...overlay.querySelectorAll(".tracepath")].forEach(p=>p.remove());
+  [...overlay.querySelectorAll(".spark")].forEach(s=>s.classList.add("fading"));
+  // fade out decoy tiles ("clear away the decoys")
+  tileEls.forEach(t=>{ if(!grid[+t.dataset.r][+t.dataset.c].target) t.classList.add("cleared"); });
+
+  // build the victory polyline and animate it drawing from first letter to last
+  const pl=document.createElementNS("http://www.w3.org/2000/svg","polyline");
+  pl.setAttribute("class","winline");
+  pl.setAttribute("points", cells.map(([r,c])=>center(r,c).join(",")).join(" "));
+  overlay.appendChild(pl);
+  const len=pl.getTotalLength();
+  pl.style.strokeDasharray=len; pl.style.strokeDashoffset=len;
+  pl.getBoundingClientRect(); // force reflow
+  const DRAW=1000;
+  pl.style.transition=`stroke-dashoffset ${DRAW}ms ease-in-out`;
+  pl.style.strokeDashoffset=0;
+
+  // light each tile as the current reaches it
+  const step = cells.length>1 ? DRAW/(cells.length-1) : 0;
+  cells.forEach(([r,c],i)=>{
+    setTimeout(()=>{
+      const t=tileAt(r,c);
+      if(t){ t.classList.remove("in-path"); t.classList.add("won"); }
+    }, i*step);
+  });
+
+  setTimeout(()=>{
+    gridEl.classList.add("celebrate");
+    [...$("blanks").children].forEach(w=>w.classList.add("solved"));
+  }, DRAW);
+  setTimeout(showWin, DRAW+800);
+}
+function gradeFor(diff){
+  if(diff<=-2) return ["EAGLE","#ffcf4d"];
+  if(diff===-1) return ["BIRDIE","#39e6a8"];
+  if(diff===0) return ["PAR","#3df0ff"];
+  if(diff===1) return ["BOGEY","#ffb36b"];
+  return ["+"+diff+" OVER","#ff8d9a"];
+}
+function showWin(){
+  const diff=moves-par;
+  const [g,col]=gradeFor(diff);
+  $("winPhrase").textContent=PUZZLES_TODAY.words.join(" ");
+  const gr=$("grade"); gr.textContent=g;
+  gr.style.background=col+"22"; gr.style.color=col; gr.style.border="1px solid "+col;
+  $("winScore").textContent=moves+" moves";
+  $("breakdown").textContent=
+    diff===0?"Perfectly efficient — dead on Par.":
+    diff<0?`You beat Par by ${-diff} move${diff<-1?"s":""}!`:
+    `${diff} over Par — you got there in the end.`;
+  const dots = diff<=0 ? "🟢".repeat(Math.max(1,moves)) : "🟢".repeat(par)+"⚪".repeat(diff);
+  $("share").textContent=`Currents ${dateStr()}\n${g} · ${moves}/${par}\n${dots}`;
+  $("modal").classList.add("show");
+}
+
+/* ---------------- UI wiring ---------------- */
+$("traceBtn").addEventListener("click",()=>{
+  mode = mode==="trace" ? "shift" : "trace";
+  document.body.classList.toggle("trace-mode", mode==="trace");
+  $("traceBtn").classList.toggle("on", mode==="trace");
+  $("modeHint").innerHTML = mode==="trace"
+    ? 'Press the first letter and drag tile-to-tile (no diagonals, no crossing) to spell the phrase.'
+    : 'Swipe rows &amp; columns (or tap the edge arrows) to line up letters. Watch for glowing <span style="color:var(--spark)">sparks</span>.';
+  if(mode!=="trace"){ trace=null; renderTrace(); }
+});
+$("hintBtn").addEventListener("click",()=>{
+  if(hintLevel>=9){ toast("All 9 letters already revealed."); return; }
+  hintLevel++;
+  $("hintBtn").textContent=`💡 Hint (${hintLevel}/9)`;
+  $("hintBtn").classList.toggle("on",hintLevel>0);
+  applyHint();
+  toast(`Letter ${hintLevel} of 9 revealed.`);
+});
+$("copyBtn").addEventListener("click",()=>{
+  navigator.clipboard?.writeText($("share").textContent).then(
+    ()=>toast("Result copied!"), ()=>toast("Copy failed",true));
+});
+$("modal").addEventListener("click",e=>{ if(e.target.id==="modal") $("modal").classList.remove("show"); });
+
+// rules modal
+$("helpBtn").addEventListener("click",()=>$("rulesModal").classList.add("show"));
+$("rulesClose").addEventListener("click",()=>$("rulesModal").classList.remove("show"));
+$("rulesModal").addEventListener("click",e=>{ if(e.target.id==="rulesModal") $("rulesModal").classList.remove("show"); });
+// auto-open for first-time players
+try{
+  if(!localStorage.getItem("currents_seen")){
+    $("rulesModal").classList.add("show");
+    localStorage.setItem("currents_seen","1");
+  }
+}catch(e){ /* localStorage blocked (e.g. file://) — skip auto-open */ }
+
+let toastTimer;
+function toast(msg,bad){
+  const t=$("toast"); t.textContent=msg;
+  t.className="toast show"+(bad?" bad":"");
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.className="toast",1800);
+}
+function dateStr(){
+  return new Date().toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"});
+}
+
+/* ---------------- Init ---------------- */
+let PUZZLES_TODAY;
+function init(){
+  PUZZLES_TODAY=PUZZLES[todayIndex()];
+  $("dateLabel").textContent="DAILY CIRCUIT · "+dateStr().toUpperCase();
+  $("clue").textContent=PUZZLES_TODAY.clue;
+  // blanks
+  const b=$("blanks"); b.innerHTML="";
+  PUZZLES_TODAY.words.forEach(w=>{
+    const wd=document.createElement("div"); wd.className="word";
+    for(let i=0;i<w.length;i++){const s=document.createElement("div");s.className="blank";wd.appendChild(s);}
+    b.appendChild(wd);
+  });
+  const cnt=document.createElement("span"); cnt.className="count";
+  cnt.textContent="("+PUZZLES_TODAY.words.map(w=>w.length).join(", ")+")";
+  b.appendChild(cnt);
+
+  buildGrid(PUZZLES_TODAY);
+  $("par").textContent=par;
+  moves=0; $("moves").textContent=0;
+  hintLevel=0; $("hintBtn").textContent="💡 Hint"; $("hintBtn").classList.remove("on");
+  buildArrows();
+  fullRender();
+}
+init();
+</script>
+</body>
+</html>
