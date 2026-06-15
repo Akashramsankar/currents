@@ -9,7 +9,7 @@
   :root{
     --bg:#0a0e1a; --panel:#121826; --tile:#1c2436; --tile2:#232c42;
     --text:#e8edf7; --muted:#7e8aa6; --line:#2a3450;
-    --spark:#3df0ff; --target:#9fb4e6; --decoy:#5a6585;
+    --spark:#3df0ff; --jump:#c074ff; --target:#9fb4e6; --decoy:#5a6585;
     --trace:#6c7bff; --good:#39e6a8; --bad:#ff5d6c; --gold:#ffcf4d;
     --cell:70px; --gap:8px; --pitch:78px; --span:304px;
   }
@@ -85,7 +85,11 @@
   #overlay{position:absolute; inset:0; pointer-events:none; z-index:4;}
   .spark{stroke:var(--spark); stroke-width:5; stroke-linecap:round;
     filter:drop-shadow(0 0 6px var(--spark)); opacity:.9;
-    stroke-dasharray:2 0; animation:pulse 1.6s ease-in-out infinite;}
+    stroke-dasharray:2 0; animation:pulse 1.6s ease-in-out infinite;
+    marker-end:url(#sparkArrow);}
+  /* a spark that bridges the end of one word to the start of the next */
+  .spark.jump{stroke:var(--jump); filter:drop-shadow(0 0 7px var(--jump));
+    marker-end:url(#jumpArrow);}
   @keyframes pulse{0%,100%{opacity:.55}50%{opacity:1}}
   .tracepath{stroke:var(--trace); stroke-width:10; stroke-linecap:round; stroke-linejoin:round;
     fill:none; filter:drop-shadow(0 0 8px var(--trace));}
@@ -237,7 +241,9 @@
 
       <div class="step"><div class="ic">⚡</div><div class="t">
         <b>Follow the sparks.</b> <span>A glowing line appears between two neighbouring tiles when they're
-        next to each other in the answer. Use them to line up the whole phrase into one connected chain.</span></div></div>
+        next to each other in the answer. Its <b>arrow</b> points from the earlier letter to the next, showing
+        which way to trace. A <span style="color:var(--jump)">violet spark</span> means that link jumps from the
+        end of one word to the start of the next. Use them to line up the whole phrase into one connected chain.</span></div></div>
 
       <div class="step"><div class="ic">✏️</div><div class="t">
         <b>Trace the answer.</b> <span>Tap "⚡ Trace Phrase", then drag from the first letter to the last —
@@ -275,6 +281,15 @@
             <stop offset="0.5" stop-color="#39e6a8"/>
             <stop offset="1" stop-color="#ffcf4d"/>
           </linearGradient>
+          <!-- arrowheads showing the direction a spark flows (earlier -> next letter) -->
+          <marker id="sparkArrow" markerUnits="userSpaceOnUse" markerWidth="13" markerHeight="13"
+                  viewBox="0 0 10 10" refX="5" refY="5" orient="auto">
+            <path d="M1.5,1.5 L9,5 L1.5,8.5 Z" fill="#3df0ff"/>
+          </marker>
+          <marker id="jumpArrow" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14"
+                  viewBox="0 0 10 10" refX="5" refY="5" orient="auto">
+            <path d="M1.5,1.5 L9,5 L1.5,8.5 Z" fill="#c074ff"/>
+          </marker>
         </defs>
       </svg>
     </div>
@@ -287,7 +302,8 @@
 
   <div class="hint" id="modeHint">
     Swipe rows &amp; columns (or tap the edge arrows) to line up letters. Watch for glowing
-    <span style="color:var(--spark)">sparks</span> between neighbours that belong together.
+    <span style="color:var(--spark)">sparks</span> — their arrows show the trace direction, and a
+    <span style="color:var(--jump)">violet spark</span> bridges two words.
   </div>
 
   <div class="coach" id="coach">
@@ -356,7 +372,7 @@ const PAR_BUFFER=2;
 /* ---------------- State ---------------- */
 let grid;            // 4x4 of {ch,target,idx}
 let phrase;          // letters only, e.g. "TIMEFLIES"
-let bigrams;         // set of "idxA-idxB" adjacency targets (not used directly)
+let wordBreaks;      // set of phrase indices whose spark crosses into the next word
 let moves=0, par=0;
 let mode="shift";    // or "trace"
 let hintLevel=0;     // how many target letters revealed (0..9)
@@ -425,12 +441,10 @@ function recordWin(diff){
 function buildGrid(p){
   phrase=p.words.join("").toUpperCase();
   const letters=phrase.split("");
-  // consecutive-letter pairs of the phrase (both directions) -> what makes a spark
-  bigrams=new Set();
-  for(let i=0;i<letters.length-1;i++){
-    bigrams.add(letters[i]+letters[i+1]);
-    bigrams.add(letters[i+1]+letters[i]);
-  }
+  // index of the last letter of each word (except the final one): a spark sitting
+  // on this index links the end of one word to the start of the next -> a "jump"
+  wordBreaks=new Set(); let acc=0;
+  p.words.forEach((w,wi)=>{ acc+=w.length; if(wi<p.words.length-1) wordBreaks.add(acc-1); });
   grid=Array.from({length:4},()=>Array(4).fill(null));
   PATH.forEach(([r,c],i)=>{ grid[r][c]={ch:letters[i],target:true,idx:i}; });
   const decoys=p.decoys.toUpperCase().split(""); let d=0;
@@ -495,19 +509,24 @@ function renderSparks(){
     for(const [dr,dc] of dirs){
       const nr=r+dr,nc=c+dc; if(nr>3||nc>3) continue;
       const b=grid[nr][nc]; if(!b.target) continue;
-      if(bigrams.has(a.ch+b.ch)){
-        const [cx1,cy1]=center(r,c), [cx2,cy2]=center(nr,nc);
-        // shorten the spark so it sits in the gap and doesn't cover the letters
-        const t=0.34; // fraction of the way in from each center
-        const x1=cx1+(cx2-cx1)*t, y1=cy1+(cy2-cy1)*t;
-        const x2=cx2+(cx1-cx2)*t, y2=cy2+(cy1-cy2)*t;
-        const ln=document.createElementNS("http://www.w3.org/2000/svg","line");
-        ln.setAttribute("class","spark");
-        ln.setAttribute("x1",x1);ln.setAttribute("y1",y1);
-        ln.setAttribute("x2",x2);ln.setAttribute("y2",y2);
-        overlay.appendChild(ln);
-        n++;
-      }
+      // a spark links two tiles that are consecutive letters in the answer
+      if(Math.abs(a.idx-b.idx)!==1) continue;
+      // draw the line from the earlier letter to the later one so the arrowhead
+      // (marker-end) points in the direction you should trace
+      const lo = a.idx<b.idx ? [r,c] : [nr,nc];
+      const hi = a.idx<b.idx ? [nr,nc] : [r,c];
+      const jump = wordBreaks.has(Math.min(a.idx,b.idx)); // crosses a word boundary
+      const [cx1,cy1]=center(lo[0],lo[1]), [cx2,cy2]=center(hi[0],hi[1]);
+      // shorten the spark so it sits in the gap and doesn't cover the letters
+      const t=0.33; // fraction of the way in from each center
+      const x1=cx1+(cx2-cx1)*t, y1=cy1+(cy2-cy1)*t;
+      const x2=cx2+(cx1-cx2)*t, y2=cy2+(cy1-cy2)*t;
+      const ln=document.createElementNS("http://www.w3.org/2000/svg","line");
+      ln.setAttribute("class","spark"+(jump?" jump":""));
+      ln.setAttribute("x1",x1);ln.setAttribute("y1",y1);
+      ln.setAttribute("x2",x2);ln.setAttribute("y2",y2);
+      overlay.appendChild(ln);
+      n++;
     }
   }
   $("sparkCount").textContent=n;
@@ -774,7 +793,7 @@ $("traceBtn").addEventListener("click",()=>{
   $("traceBtn").classList.toggle("on", mode==="trace");
   $("modeHint").innerHTML = mode==="trace"
     ? 'Press the first letter and drag tile-to-tile (no diagonals, no crossing) to spell the phrase.'
-    : 'Swipe rows &amp; columns (or tap the edge arrows) to line up letters. Watch for glowing <span style="color:var(--spark)">sparks</span>.';
+    : 'Swipe rows &amp; columns (or tap the edge arrows) to line up letters. Follow each <span style="color:var(--spark)">spark</span> arrow — a <span style="color:var(--jump)">violet</span> one bridges two words.';
   if(mode!=="trace"){ trace=null; renderTrace(); }
 });
 $("hintBtn").addEventListener("click",()=>{
@@ -900,7 +919,7 @@ function doStep(step){
     coach("Slide to line up","The letters are scrambled. Slide a row or column and they wrap around the edges. <b>Tap the glowing arrow</b> to slide the top row into place.",
       {prog:"3 / "+TUT_TOTAL});
   }else if(step===3){
-    coach("Follow the sparks","Lined up! Those glowing <b>sparks</b> link letters that sit next to each other in the answer — follow them to spell it.",
+    coach("Follow the sparks","Lined up! Those glowing <b>sparks</b> link neighbouring letters of the answer, and each <b>arrow</b> shows which way to trace. A <span style='color:var(--jump)'>violet</span> spark bridges the end of one word to the next.",
       {next:"Trace it",prog:"4 / "+TUT_TOTAL});
   }else if(step===4){
     mode="trace"; document.body.classList.add("trace-mode"); $("traceBtn").classList.add("on");
