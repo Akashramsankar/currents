@@ -243,7 +243,9 @@
         <b>Follow the sparks.</b> <span>A glowing line appears between two neighbouring tiles when they're
         next to each other in the answer. Its <b>arrow</b> points from the earlier letter to the next, showing
         which way to trace. A <span style="color:var(--jump)">violet spark</span> means that link jumps from the
-        end of one word to the start of the next. Use them to line up the whole phrase into one connected chain.</span></div></div>
+        end of one word to the start of the next. Use them to line up the whole phrase into one connected chain.
+        <b>Repeated letters?</b> Sparks mark only the <b>correct</b> copy — if a letter sits next to the right
+        neighbour but stays dark, it's the wrong one for that spot.</span></div></div>
 
       <div class="step"><div class="ic">✏️</div><div class="t">
         <b>Trace the answer.</b> <span>Tap "⚡ Trace Phrase", then drag from the first letter to the last —
@@ -303,7 +305,8 @@
   <div class="hint" id="modeHint">
     Swipe rows &amp; columns (or tap the edge arrows) to line up letters. Watch for glowing
     <span style="color:var(--spark)">sparks</span> — their arrows show the trace direction, and a
-    <span style="color:var(--jump)">violet spark</span> bridges two words.
+    <span style="color:var(--jump)">violet spark</span> bridges two words. With repeated letters, only the
+    correct copy sparks.
   </div>
 
   <div class="coach" id="coach">
@@ -793,7 +796,7 @@ $("traceBtn").addEventListener("click",()=>{
   $("traceBtn").classList.toggle("on", mode==="trace");
   $("modeHint").innerHTML = mode==="trace"
     ? 'Press the first letter and drag tile-to-tile (no diagonals, no crossing) to spell the phrase.'
-    : 'Swipe rows &amp; columns (or tap the edge arrows) to line up letters. Follow each <span style="color:var(--spark)">spark</span> arrow — a <span style="color:var(--jump)">violet</span> one bridges two words.';
+    : 'Swipe rows &amp; columns (or tap the edge arrows) to line up letters. Follow each <span style="color:var(--spark)">spark</span> arrow — a <span style="color:var(--jump)">violet</span> one bridges two words. With repeated letters, only the correct copy sparks.';
   if(mode!=="trace"){ trace=null; renderTrace(); }
 });
 $("hintBtn").addEventListener("click",()=>{
