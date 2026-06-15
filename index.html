@@ -349,6 +349,9 @@ const PUZZLES = [
 const PATH = [[0,0],[0,1],[0,2],[0,3],[1,3],[1,2],[1,1],[1,0],[2,0]];
 
 const PITCH=78, CELL=70, SPAN=304, TOTAL=4*PITCH;
+/* Par = the optimal solve (scramble length) + this cushion, so beating Par is
+   achievable: an optimal solve lands a few under. 2 -> optimal=Eagle, +1=Birdie. */
+const PAR_BUFFER=2;
 
 /* ---------------- State ---------------- */
 let grid;            // 4x4 of {ch,target,idx}
@@ -435,7 +438,7 @@ function buildGrid(p){
     if(!grid[r][c]) grid[r][c]={ch:decoys[d++]||"?",target:false,idx:-1};
   // scramble into start position
   p.scramble.forEach(([type,i,dir])=> shift(type,i,dir));
-  par=p.scramble.length;
+  par=p.scramble.length + PAR_BUFFER;
 }
 
 /* ---------------- Grid operations ---------------- */
