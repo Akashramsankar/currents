@@ -182,6 +182,36 @@
     padding:12px 14px; font-size:14px; line-height:1.5; margin-bottom:6px;}
   .rules .goal b{color:var(--gold);}
   .rules button{display:block; width:100%; margin-top:18px;}
+  .rules .replay{background:#161d30; border:1px solid var(--spark); color:var(--spark); margin-top:10px;}
+
+  /* interactive tutorial coach */
+  .coach{position:fixed; left:50%; bottom:18px; transform:translateX(-50%) translateY(20px);
+    width:min(420px,92vw); background:linear-gradient(180deg,#16203a,#0e1422);
+    border:1px solid var(--spark); border-radius:14px; padding:14px 16px;
+    box-shadow:0 12px 40px rgba(0,0,0,.6), 0 0 24px rgba(61,240,255,.25);
+    z-index:40; opacity:0; pointer-events:none; transition:.3s;}
+  .coach.show{opacity:1; transform:translateX(-50%) translateY(0); pointer-events:auto;}
+  .coach .ctitle{font-size:11px; letter-spacing:2px; color:var(--spark); text-transform:uppercase; margin-bottom:5px;}
+  .coach .ctext{font-size:14px; line-height:1.5; color:var(--text);}
+  .coach .ctext b{color:var(--spark);}
+  .coach .crow{display:flex; gap:8px; margin-top:13px; align-items:center;}
+  .coach .cprog{font-size:11px; color:var(--muted); margin-right:auto; letter-spacing:1px;}
+  .coach button{padding:9px 16px; border-radius:9px; border:none; cursor:pointer;
+    font-weight:800; letter-spacing:.5px; font-size:13px;}
+  .coach .skip{background:transparent; border:1px solid var(--line); color:var(--muted);}
+  .coach .skip:hover{color:var(--text); border-color:var(--muted);}
+  .coach .next{background:linear-gradient(90deg,#3df0ff,#6c7bff); color:#06101f;}
+  /* tutorial spotlights */
+  .tut-highlight{position:relative; z-index:35;
+    box-shadow:0 0 0 2px var(--spark), 0 0 24px rgba(61,240,255,.5);
+    animation:tutpulse 1.6s ease-in-out infinite;}
+  @keyframes tutpulse{0%,100%{box-shadow:0 0 0 2px var(--spark),0 0 18px rgba(61,240,255,.4);}
+    50%{box-shadow:0 0 0 2px var(--spark),0 0 32px rgba(61,240,255,.8);}}
+  .arrow.spot{opacity:1!important; color:var(--spark); border-color:var(--spark);
+    z-index:10; animation:tutpulse 1.2s ease-in-out infinite;}
+  .arrow.tut-dim{opacity:.1!important; pointer-events:none;}
+  .tile.tut-start{box-shadow:0 0 0 2px var(--gold), 0 0 18px rgba(255,207,77,.7);
+    border-color:var(--gold); color:#ffe9a8;}
 </style>
 </head>
 <body>
@@ -220,6 +250,7 @@
         <b>Beat Par.</b> <span>Par is the target number of moves. Solve it in fewer for a Birdie or Eagle!</span></div></div>
 
       <button id="rulesClose">Got it — let's play</button>
+      <button id="replayTut" class="replay">▶ Replay interactive tutorial</button>
     </div>
   </div>
 
@@ -257,6 +288,16 @@
   <div class="hint" id="modeHint">
     Swipe rows &amp; columns (or tap the edge arrows) to line up letters. Watch for glowing
     <span style="color:var(--spark)">sparks</span> between neighbours that belong together.
+  </div>
+
+  <div class="coach" id="coach">
+    <div class="ctitle" id="coachTitle">Tutorial</div>
+    <div class="ctext" id="coachText"></div>
+    <div class="crow">
+      <span class="cprog" id="coachProg"></span>
+      <button class="skip" id="coachSkip">Skip</button>
+      <button class="next" id="coachNext">Next</button>
+    </div>
   </div>
 
   <div class="toast" id="toast"></div>
@@ -317,6 +358,7 @@ let moves=0, par=0;
 let mode="shift";    // or "trace"
 let hintLevel=0;     // how many target letters revealed (0..9)
 let won=false;
+let tutorialMode=false, tutStep=0;  // scripted interactive tutorial
 
 const $=id=>document.getElementById(id);
 const gridEl=$("grid"), overlay=$("overlay"), stage=$("stage");
@@ -336,6 +378,7 @@ function todayIndex(){
    (different puzzle) discards the old save automatically.               */
 const SAVE_KEY="currents_progress";
 function saveState(){
+  if(tutorialMode) return;   // tutorial board must never overwrite the real day's progress
   try{
     localStorage.setItem(SAVE_KEY, JSON.stringify({day:dayNumber(),grid,moves,hintLevel,won}));
   }catch(e){ /* localStorage blocked — progress just won't persist */ }
@@ -473,28 +516,29 @@ function doMove(type,i,dir,count=1){
   moves++; $("moves").textContent=moves;
   fullRender();
   saveState();
+  if(tutorialMode) tutOnMove();
 }
 
 /* ---------------- Edge arrows ---------------- */
 function buildArrows(){
   [...stage.querySelectorAll(".arrow")].forEach(a=>a.remove());
   const base=30; // stage padding
-  const mk=(txt,x,y,fn)=>{
+  const mk=(txt,x,y,fn,act)=>{
     const a=document.createElement("div");
-    a.className="arrow"; a.textContent=txt;
+    a.className="arrow"; a.textContent=txt; a.dataset.act=act;
     a.style.left=(x-13)+"px"; a.style.top=(y-13)+"px";
     a.addEventListener("click",fn);
     stage.appendChild(a);
   };
   for(let r=0;r<4;r++){
     const y=base+r*PITCH+CELL/2;
-    mk("‹", base-16, y, ()=>doMove("row",r,-1));
-    mk("›", base+SPAN+16, y, ()=>doMove("row",r,1));
+    mk("‹", base-16, y, ()=>doMove("row",r,-1), `row-${r}--1`);
+    mk("›", base+SPAN+16, y, ()=>doMove("row",r,1), `row-${r}-1`);
   }
   for(let c=0;c<4;c++){
     const x=base+c*PITCH+CELL/2;
-    mk("∧", x, base-16, ()=>doMove("col",c,-1));
-    mk("∨", x, base+SPAN+16, ()=>doMove("col",c,1));
+    mk("∧", x, base-16, ()=>doMove("col",c,-1), `col-${c}--1`);
+    mk("∨", x, base+SPAN+16, ()=>doMove("col",c,1), `col-${c}-1`);
   }
 }
 
@@ -516,6 +560,7 @@ function cellFromPos(x,y){
 
 gridEl.addEventListener("pointerdown",e=>{
   if(won) return;
+  if(tutorialMode && mode!=="trace") return; // during scripted steps only the spotlight arrow drives the board
   const [x,y]=localPos(e);
   const rc=cellFromPos(x,y); if(!rc) return;
   gridEl.setPointerCapture(e.pointerId);
@@ -646,6 +691,7 @@ function endTrace(){
 
 /* ---------------- Win ---------------- */
 function winGame(){
+  if(tutorialMode){ tutWin(); return; }
   won=true;
   $("hintBtn").disabled=true;
   recordWin(moves-par);   // count this win / update streak once, at the live win moment
@@ -765,13 +811,7 @@ $("modal").addEventListener("click",e=>{ if(e.target.id==="modal") $("modal").cl
 $("helpBtn").addEventListener("click",()=>$("rulesModal").classList.add("show"));
 $("rulesClose").addEventListener("click",()=>$("rulesModal").classList.remove("show"));
 $("rulesModal").addEventListener("click",e=>{ if(e.target.id==="rulesModal") $("rulesModal").classList.remove("show"); });
-// auto-open for first-time players
-try{
-  if(!localStorage.getItem("currents_seen")){
-    $("rulesModal").classList.add("show");
-    localStorage.setItem("currents_seen","1");
-  }
-}catch(e){ /* localStorage blocked (e.g. file://) — skip auto-open */ }
+// first-time players get the interactive tutorial (launched after init, below)
 
 let toastTimer;
 function toast(msg,bad){
@@ -783,6 +823,138 @@ function toast(msg,bad){
 function dateStr(){
   return new Date().toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"});
 }
+
+/* ---------------- Interactive tutorial ----------------
+   A dedicated 9-letter board ("WORD GAMES") that is NOT part of the daily
+   rotation, so replaying it never spoils a real puzzle. It drives the live
+   engine (shift / sparks / trace) one scripted step at a time. tutorialMode
+   gates saveState / winGame / grid-drag so nothing leaks into the real game. */
+const TUTORIAL = {
+  clue:"A puzzle you play with letters.",
+  words:["WORD","GAMES"], decoys:"KXVPZBJ",
+  scramble:[["row",0,1]]   // one shift to undo -> Par 1, single guided move
+};
+const TUT_TOTAL=5;
+
+function isSolved(){ return PATH.every(([r,c],i)=> grid[r][c].ch===phrase[i]); }
+
+function clearTutHighlights(){
+  document.querySelectorAll(".tut-highlight").forEach(e=>e.classList.remove("tut-highlight"));
+  document.querySelectorAll(".arrow").forEach(e=>e.classList.remove("spot","tut-dim"));
+  document.querySelectorAll(".tile.tut-start").forEach(e=>e.classList.remove("tut-start"));
+}
+function dimAllArrows(){ document.querySelectorAll(".arrow").forEach(a=>a.classList.add("tut-dim")); }
+
+function coach(title,text,{next=null,prog=""}={}){
+  $("coachTitle").textContent=title;
+  $("coachText").innerHTML=text;
+  $("coachProg").textContent=prog;
+  const nb=$("coachNext");
+  if(next){ nb.style.display=""; nb.textContent=next; } else nb.style.display="none";
+  $("coach").classList.add("show");
+}
+
+function startTutorial(){
+  $("rulesModal").classList.remove("show");
+  $("modal").classList.remove("show");
+  tutorialMode=true; tutStep=0; won=false; moves=0; hintLevel=0;
+  mode="shift"; document.body.classList.remove("trace-mode");
+  $("traceBtn").classList.remove("on");
+  $("traceBtn").disabled=true; $("hintBtn").disabled=true; $("hintBtn").classList.remove("on");
+  $("hintBtn").textContent="💡 Hint";
+  // load the tutorial board over the real one (never saved)
+  $("clue").textContent=TUTORIAL.clue;
+  const b=$("blanks"); b.innerHTML="";
+  TUTORIAL.words.forEach(w=>{
+    const wd=document.createElement("div"); wd.className="word";
+    for(let i=0;i<w.length;i++){const s=document.createElement("div");s.className="blank";wd.appendChild(s);}
+    b.appendChild(wd);
+  });
+  const cnt=document.createElement("span"); cnt.className="count";
+  cnt.textContent="("+TUTORIAL.words.map(w=>w.length).join(", ")+")"; b.appendChild(cnt);
+  buildGrid(TUTORIAL);
+  $("par").textContent=par; $("moves").textContent=0;
+  buildArrows(); fullRender();
+  tutGo(0);
+}
+
+function tutGo(step){
+  tutStep=step; clearTutHighlights(); $("coach").classList.remove("show");
+  setTimeout(()=>doStep(step),80);  // brief gap so the pulse/highlight restarts cleanly
+}
+function doStep(step){
+  dimAllArrows();   // arrows stay locked unless a step re-enables one
+  if(step===0){
+    coach("Welcome","This is <b>Currents</b> — a daily word puzzle. Let me walk you through one quick round.",
+      {next:"Show me",prog:"1 / "+TUT_TOTAL});
+  }else if(step===1){
+    $("clue").parentElement.classList.add("tut-highlight");
+    coach("The clue","Each day hides an answer. The <b>dashes</b> show how many letters each word has — here a (4, 5).",
+      {next:"Got it",prog:"2 / "+TUT_TOTAL});
+  }else if(step===2){
+    const arrow=stage.querySelector('[data-act="row-0--1"]');
+    if(arrow){ arrow.classList.remove("tut-dim"); arrow.classList.add("spot"); }
+    coach("Slide to line up","The letters are scrambled. Slide a row or column and they wrap around the edges. <b>Tap the glowing arrow</b> to slide the top row into place.",
+      {prog:"3 / "+TUT_TOTAL});
+  }else if(step===3){
+    coach("Follow the sparks","Lined up! Those glowing <b>sparks</b> link letters that sit next to each other in the answer — follow them to spell it.",
+      {next:"Trace it",prog:"4 / "+TUT_TOTAL});
+  }else if(step===4){
+    mode="trace"; document.body.classList.add("trace-mode"); $("traceBtn").classList.add("on");
+    const [r,c]=PATH[0]; const t=tileAt(r,c); if(t) t.classList.add("tut-start");
+    coach("Trace the answer","Press the <b>glowing first letter</b> and drag through each tile in order — no diagonals, no crossing. Spell <b>WORD GAMES</b> to finish.",
+      {prog:"5 / "+TUT_TOTAL});
+  }
+}
+
+function tutOnMove(){ if(tutStep===2 && isSolved()) tutGo(3); }
+
+function tutWin(){
+  won=true;                       // freeze interaction during the celebration
+  const cells=trace.cells.slice();
+  clearTutHighlights();
+  [...overlay.querySelectorAll(".tracepath")].forEach(p=>p.remove());
+  [...overlay.querySelectorAll(".spark")].forEach(s=>s.classList.add("fading"));
+  tileEls.forEach(t=>{ if(!grid[+t.dataset.r][+t.dataset.c].target) t.classList.add("cleared"); });
+  const pl=document.createElementNS("http://www.w3.org/2000/svg","polyline");
+  pl.setAttribute("class","winline");
+  pl.setAttribute("points", cells.map(([r,c])=>center(r,c).join(",")).join(" "));
+  overlay.appendChild(pl);
+  const len=pl.getTotalLength(); pl.style.strokeDasharray=len; pl.style.strokeDashoffset=len;
+  pl.getBoundingClientRect(); const DRAW=900;
+  pl.style.transition=`stroke-dashoffset ${DRAW}ms ease-in-out`; pl.style.strokeDashoffset=0;
+  const stp=cells.length>1?DRAW/(cells.length-1):0;
+  cells.forEach(([r,c],i)=>setTimeout(()=>{ const t=tileAt(r,c); if(t){ t.classList.remove("in-path"); t.classList.add("won"); } }, i*stp));
+  setTimeout(()=>{ gridEl.classList.add("celebrate"); [...$("blanks").children].forEach(w=>w.classList.add("solved")); }, DRAW);
+  setTimeout(()=>{
+    mode="shift"; document.body.classList.remove("trace-mode"); $("traceBtn").classList.remove("on");
+    dimAllArrows();   // keep the finished board untouchable behind the final coach card
+    coach("You've got it! 🎉","That's the whole game: <b>slide</b> to line up, <b>follow the sparks</b>, then <b>trace</b> the answer. Beat Par for a Birdie or Eagle.",
+      {next:"Play today's puzzle",prog:TUT_TOTAL+" / "+TUT_TOTAL});
+  }, DRAW+700);
+}
+
+function endTutorial(){
+  tutorialMode=false; tutStep=0;
+  clearTutHighlights(); $("coach").classList.remove("show");
+  gridEl.classList.remove("celebrate");
+  [...overlay.querySelectorAll(".winline")].forEach(p=>p.remove());
+  mode="shift"; document.body.classList.remove("trace-mode"); $("traceBtn").classList.remove("on");
+  $("traceBtn").disabled=false;
+  init();   // rebuild + restore the real puzzle and any saved progress
+}
+
+$("coachNext").addEventListener("click",()=>{
+  switch(tutStep){
+    case 0: tutGo(1); break;
+    case 1: tutGo(2); break;
+    case 3: tutGo(4); break;
+    case 4: endTutorial(); break;   // "Next" only appears here after the win
+    default: endTutorial();
+  }
+});
+$("coachSkip").addEventListener("click",endTutorial);
+$("replayTut").addEventListener("click",startTutorial);
 
 /* ---------------- Init ---------------- */
 let PUZZLES_TODAY;
@@ -823,6 +995,14 @@ function init(){
   if(won) showWin(); // already solved today — show the result instead of replaying
 }
 init();
+
+// First visit: launch the interactive tutorial once (over the now-ready real board).
+try{
+  if(!localStorage.getItem("currents_seen")){
+    localStorage.setItem("currents_seen","1");
+    startTutorial();
+  }
+}catch(e){ /* localStorage blocked (e.g. file://) — skip the auto tutorial */ }
 </script>
 </body>
 </html>
