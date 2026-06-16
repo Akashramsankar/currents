@@ -410,13 +410,15 @@ const SAVE_KEY="currents_progress";
 function saveState(){
   if(tutorialMode) return;   // tutorial board must never overwrite the real day's progress
   try{
-    localStorage.setItem(SAVE_KEY, JSON.stringify({day:dayNumber(),grid,moves,hintLevel,won}));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({day:dayNumber(),phrase,grid,moves,hintLevel,won}));
   }catch(e){ /* localStorage blocked — progress just won't persist */ }
 }
 function loadState(){
   try{
     const s=JSON.parse(localStorage.getItem(SAVE_KEY)||"null");
-    if(s && s.day===dayNumber() && Array.isArray(s.grid)) return s;
+    // resume only if it's the same day AND the same puzzle — if the puzzle was
+    // edited/swapped, the old board no longer matches the clue, so discard it
+    if(s && s.day===dayNumber() && s.phrase===phrase && Array.isArray(s.grid)) return s;
   }catch(e){ /* ignore corrupt/blocked storage */ }
   return null;
 }
