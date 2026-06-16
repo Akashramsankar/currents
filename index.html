@@ -35,7 +35,10 @@
     border:1px solid var(--line); border-radius:16px; padding:16px 18px;
     width:min(420px,94vw); box-shadow:0 10px 40px rgba(0,0,0,.45);
   }
+  .clue-head{display:flex; justify-content:space-between; align-items:center; gap:10px;}
   .clue-label{font-size:11px; letter-spacing:2px; color:var(--muted); text-transform:uppercase;}
+  .difficulty{font-size:10px; letter-spacing:1.5px; color:var(--muted); text-transform:uppercase; white-space:nowrap;}
+  .difficulty .stars{color:var(--gold); letter-spacing:1px; font-size:12px;}
   .clue{font-size:18px; font-weight:600; margin:6px 0 12px; line-height:1.35;}
   .blanks{display:flex; flex-wrap:wrap; gap:14px; align-items:flex-end;}
   .word{display:flex; gap:5px;}
@@ -255,7 +258,9 @@
         <b>Stuck?</b> <span>The Hint button reveals one answer letter at a time.</span></div></div>
 
       <div class="step"><div class="ic">⛳</div><div class="t">
-        <b>Beat Par.</b> <span>Par is the target number of moves. Solve it in fewer for a Birdie or Eagle!</span></div></div>
+        <b>Beat Par.</b> <span>Par is the target number of moves, set from the puzzle's fastest possible solve.
+        Solve it in fewer for a Birdie or Eagle! The <b style="color:var(--gold)">★ stars</b> by the clue rate
+        how tough today's puzzle is.</span></div></div>
 
       <button id="rulesClose">Got it — let's play</button>
       <button id="replayTut" class="replay">▶ Replay interactive tutorial</button>
@@ -263,7 +268,10 @@
   </div>
 
   <div class="card">
-    <div class="clue-label">Today's Clue</div>
+    <div class="clue-head">
+      <span class="clue-label">Today's Clue</span>
+      <span class="difficulty" id="difficulty"></span>
+    </div>
     <div class="clue" id="clue">…</div>
     <div class="blanks" id="blanks"></div>
   </div>
@@ -355,9 +363,9 @@ const PUZZLES = [
   { clue:"Friends gather round the table to play.",
     words:["GAME","NIGHT"], decoys:"PVZKWXJ",
     scramble:[["col",0,1],["row",1,-1],["col",2,1],["row",3,1],["col",1,-1]] },
-  { clue:"An approaching mass of chilly weather.",
-    words:["COLD","FRONT"], decoys:"BKWXZQV",
-    scramble:[["row",0,-1],["col",1,1],["row",2,-1],["col",3,1]] },
+  { clue:"Colourful explosions that light up the night sky.",
+    words:["FIRE","WORKS"], decoys:"BTNPLDG",
+    scramble:[["row",0,1],["col",2,1],["row",2,-1]] },
   { clue:"An unbeatable line-up of all-stars.",
     words:["DREAM","TEAM"], decoys:"PKWXZQB",
     scramble:[["col",2,1],["row",0,1],["col",0,-1],["row",3,-1],["row",1,1]] },
@@ -368,15 +376,15 @@ const PUZZLES = [
 const PATH = [[0,0],[0,1],[0,2],[0,3],[1,3],[1,2],[1,1],[1,0],[2,0]];
 
 const PITCH=78, CELL=70, SPAN=304, TOTAL=4*PITCH;
-/* Par = the optimal solve (scramble length) + this cushion, so beating Par is
-   achievable: an optimal solve lands a few under. 2 -> optimal=Eagle, +1=Birdie. */
-const PAR_BUFFER=2;
+/* Par = the true optimal solve (fewest moves, found by BFS in buildGrid) + this
+   cushion, so beating Par is achievable: an optimal solve lands a few under. */
+const PAR_CUSHION=3;
 
 /* ---------------- State ---------------- */
 let grid;            // 4x4 of {ch,target,idx}
 let phrase;          // letters only, e.g. "TIMEFLIES"
 let wordBreaks;      // set of phrase indices whose spark crosses into the next word
-let moves=0, par=0;
+let moves=0, par=0, starRating=1;   // starRating: 1–5 difficulty, from the optimal solve
 let mode="shift";    // or "trace"
 let hintLevel=0;     // how many target letters revealed (0..9)
 let won=false;
@@ -455,7 +463,56 @@ function buildGrid(p){
     if(!grid[r][c]) grid[r][c]={ch:decoys[d++]||"?",target:false,idx:-1};
   // scramble into start position
   p.scramble.forEach(([type,i,dir])=> shift(type,i,dir));
-  par=p.scramble.length + PAR_BUFFER;
+  // Par from the *actual* fewest moves to line the answer up (not the scramble
+  // length, which can contain undo-able redundancy). Easier puzzles -> lower Par.
+  const optimal=optimalMoves();
+  par=optimal + PAR_CUSHION;
+  starRating=starsFor(optimal);
+}
+
+/* ---------------- Optimal-solve search (drives Par + difficulty) ----------------
+   Breadth-first over letter-only grids. One game "move" rotates a single row or
+   column by any amount (a drag of 1–3 cells counts as one move, see doMove), so a
+   neighbour = rotating one of the 8 lanes by 1, 2 or 3. We compare letters only,
+   so duplicate letters collapse and the search finds the genuinely shortest solve.
+   The goal: the 9 PATH cells spell the phrase (any valid copy of a repeated letter
+   counts). Always reachable within the scramble length, so the BFS stays shallow. */
+function gridKey(g){
+  let s=""; for(let r=0;r<4;r++)for(let c=0;c<4;c++) s+=g[r][c].ch; return s;
+}
+function keySolved(k){ return PATH.every(([r,c],i)=> k[r*4+c]===phrase[i]); }
+function keyRotate(k,type,i,amt){
+  const a=k.split("");
+  const idx = type==="row" ? [i*4,i*4+1,i*4+2,i*4+3] : [i,i+4,i+8,i+12];
+  const v=idx.map(x=>a[x]);
+  const rot=v.slice(4-amt).concat(v.slice(0,4-amt)); // rotate by `amt` (1..3)
+  idx.forEach((x,j)=>a[x]=rot[j]);
+  return a.join("");
+}
+function optimalMoves(){
+  const start=gridKey(grid);
+  if(keySolved(start)) return 0;
+  const seen=new Set([start]); let frontier=[start], depth=0;
+  while(frontier.length && depth<10){
+    depth++;
+    const next=[];
+    for(const k of frontier){
+      for(const type of ["row","col"]) for(let i=0;i<4;i++) for(let amt=1;amt<=3;amt++){
+        const nk=keyRotate(k,type,i,amt);
+        if(seen.has(nk)) continue;
+        if(keySolved(nk)) return depth;
+        seen.add(nk); next.push(nk);
+      }
+    }
+    frontier=next;
+  }
+  return depth;
+}
+function starsFor(opt){ return Math.min(5, Math.max(1, opt-1)); }
+const DIFF_LABELS=["","Very Easy","Easy","Medium","Hard","Expert"];
+function renderDifficulty(){
+  const el=$("difficulty"); if(!el) return;
+  el.innerHTML=`<span class="stars">${"★".repeat(starRating)}${"☆".repeat(5-starRating)}</span> ${DIFF_LABELS[starRating]}`;
 }
 
 /* ---------------- Grid operations ---------------- */
@@ -785,7 +842,7 @@ function showWin(){
     `<span class="gd${k===curKey?" cur":""}">${l} <b>${s.dist[k]||0}</b></span>`).join("");
 
   const dots = diff<=0 ? "🟢".repeat(Math.max(1,moves)) : "🟢".repeat(par)+"⚪".repeat(diff);
-  $("share").textContent=`Currents #${dayNumber()+1}\n${g} · ${moves}/${par} · 🔥${s.currentStreak}\n${dots}`;
+  $("share").textContent=`Currents #${dayNumber()+1} ${"★".repeat(starRating)}\n${g} · ${moves}/${par} · 🔥${s.currentStreak}\n${dots}`;
   $("modal").classList.add("show");
 }
 
@@ -898,7 +955,7 @@ function startTutorial(){
   const cnt=document.createElement("span"); cnt.className="count";
   cnt.textContent="("+TUTORIAL.words.map(w=>w.length).join(", ")+")"; b.appendChild(cnt);
   buildGrid(TUTORIAL);
-  $("par").textContent=par; $("moves").textContent=0;
+  $("par").textContent=par; $("moves").textContent=0; renderDifficulty();
   buildArrows(); fullRender();
   tutGo(0);
 }
@@ -999,7 +1056,7 @@ function init(){
   b.appendChild(cnt);
 
   buildGrid(PUZZLES_TODAY);
-  $("par").textContent=par;
+  $("par").textContent=par; renderDifficulty();
 
   // resume in-progress board if the player already started today's puzzle
   const saved=loadState();
