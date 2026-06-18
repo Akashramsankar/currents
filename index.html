@@ -309,6 +309,10 @@
     <button class="act" id="traceBtn">⚡ Trace Phrase</button>
     <button class="act" id="hintBtn">💡 Hint</button>
   </div>
+  <div class="controls">
+    <button class="act" id="undoBtn">↩ Undo</button>
+    <button class="act" id="resetBtn">⟲ Reset</button>
+  </div>
 
   <div class="hint" id="modeHint">
     Swipe rows &amp; columns (or tap the edge arrows) to line up letters. Watch for glowing
@@ -385,6 +389,7 @@ let grid;            // 4x4 of {ch,target,idx}
 let phrase;          // letters only, e.g. "TIMEFLIES"
 let wordBreaks;      // set of phrase indices whose spark crosses into the next word
 let moves=0, par=0, starRating=1;   // starRating: 1–5 difficulty, from the optimal solve
+let history=[];      // stack of applied moves {type,i,dir,count} for Undo
 let mode="shift";    // or "trace"
 let hintLevel=0;     // how many target letters revealed (0..9)
 let won=false;
@@ -410,7 +415,7 @@ const SAVE_KEY="currents_progress";
 function saveState(){
   if(tutorialMode) return;   // tutorial board must never overwrite the real day's progress
   try{
-    localStorage.setItem(SAVE_KEY, JSON.stringify({day:dayNumber(),phrase,grid,moves,hintLevel,won}));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({day:dayNumber(),phrase,grid,moves,hintLevel,won,history}));
   }catch(e){ /* localStorage blocked — progress just won't persist */ }
 }
 function loadState(){
@@ -598,9 +603,39 @@ function renderSparks(){
 function doMove(type,i,dir,count=1){
   for(let k=0;k<count;k++) shift(type,i,dir);
   moves++; $("moves").textContent=moves;
+  if(!tutorialMode) history.push({type,i,dir,count});   // record for Undo
   fullRender();
   saveState();
+  updateControls();
   if(tutorialMode) tutOnMove();
+}
+
+/* ---------------- Undo / Reset ---------------- */
+function updateControls(){
+  // Undo needs a move to revert; Reset needs the board to be off its start.
+  const ub=$("undoBtn"), rb=$("resetBtn");
+  if(ub) ub.disabled = won || tutorialMode || history.length===0;
+  if(rb) rb.disabled = won || tutorialMode || moves===0;
+}
+function undoMove(){
+  if(won || tutorialMode || history.length===0) return;
+  const m=history.pop();
+  for(let k=0;k<m.count;k++) shift(m.type,m.i,-m.dir);   // inverse shift, same count
+  moves--; $("moves").textContent=moves;
+  trace=null; renderTrace();   // any in-progress trace is no longer valid
+  fullRender();
+  saveState();
+  updateControls();
+}
+function resetBoard(){
+  if(won || tutorialMode || moves===0) return;
+  buildGrid(PUZZLES_TODAY);     // deterministically rebuilds the original scrambled start
+  moves=0; history=[]; $("moves").textContent=0;
+  trace=null; renderTrace();
+  fullRender();
+  saveState();
+  updateControls();
+  toast("Board reset to the start.");
 }
 
 /* ---------------- Edge arrows ---------------- */
@@ -778,6 +813,7 @@ function winGame(){
   if(tutorialMode){ tutWin(); return; }
   won=true;
   $("hintBtn").disabled=true;
+  updateControls();       // lock Undo/Reset once solved
   recordWin(moves-par);   // count this win / update streak once, at the live win moment
   saveState();
   animateWin();
@@ -867,6 +903,8 @@ $("hintBtn").addEventListener("click",()=>{
   saveState();
   toast(`Letter ${hintLevel} of 9 revealed.`);
 });
+$("undoBtn").addEventListener("click",undoMove);
+$("resetBtn").addEventListener("click",resetBoard);
 async function shareResult(){
   const text=$("share").textContent;
   // native share sheet on supported devices (mostly mobile)
@@ -946,6 +984,7 @@ function startTutorial(){
   $("traceBtn").classList.remove("on");
   $("traceBtn").disabled=true; $("hintBtn").disabled=true; $("hintBtn").classList.remove("on");
   $("hintBtn").textContent="💡 Hint";
+  history=[]; $("undoBtn").disabled=true; $("resetBtn").disabled=true;  // tutorial drives the board itself
   // load the tutorial board over the real one (never saved)
   $("clue").textContent=TUTORIAL.clue;
   const b=$("blanks"); b.innerHTML="";
@@ -1064,8 +1103,9 @@ function init(){
   const saved=loadState();
   if(saved){
     grid=saved.grid; moves=saved.moves; hintLevel=saved.hintLevel; won=saved.won;
+    history=Array.isArray(saved.history)?saved.history:[];
   }else{
-    moves=0; hintLevel=0; won=false;
+    moves=0; hintLevel=0; won=false; history=[];
   }
 
   $("moves").textContent=moves;
@@ -1075,6 +1115,7 @@ function init(){
 
   buildArrows();
   fullRender();
+  updateControls();
 
   if(won) showWin(); // already solved today — show the result instead of replaying
 }
