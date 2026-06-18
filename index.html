@@ -178,6 +178,25 @@
     background:#161d30; border:1px solid var(--line); color:var(--spark); font-size:18px;
     font-weight:800; cursor:pointer; z-index:15; transition:.15s;}
   .help-btn:hover{border-color:var(--spark); transform:scale(1.08);}
+  .cal-btn{position:fixed; top:14px; left:14px; width:38px; height:38px; border-radius:50%;
+    background:#161d30; border:1px solid var(--line); font-size:17px; line-height:1;
+    cursor:pointer; z-index:15; transition:.15s; display:flex; align-items:center; justify-content:center;}
+  .cal-btn:hover{border-color:var(--spark); transform:scale(1.08);}
+  /* archive list */
+  .archive{text-align:center; max-height:86vh; overflow-y:auto;}
+  .arch-sub{color:var(--muted); font-size:12px; line-height:1.5; margin:-2px 0 14px;}
+  .arch-list{display:flex; flex-direction:column; gap:8px; margin-bottom:6px;}
+  .arch-row{display:flex; align-items:center; gap:12px; width:100%; text-align:left;
+    background:#0f1626; border:1px solid var(--line); border-radius:12px; padding:11px 14px;
+    color:var(--text); cursor:pointer; font:inherit; transition:.15s;}
+  .arch-row:hover{border-color:var(--spark); background:#121c30;}
+  .arch-row.current{border-color:var(--spark); box-shadow:0 0 0 1px var(--spark) inset;}
+  .arch-row .an{font-weight:800; font-size:15px; color:var(--spark); min-width:34px;}
+  .arch-row .ad{flex:1; font-size:14px;}
+  .arch-row .atoday{font-size:9px; letter-spacing:1px; color:var(--gold); border:1px solid var(--gold);
+    border-radius:6px; padding:2px 6px; text-transform:uppercase;}
+  .arch-row .as{font-size:15px; min-width:20px; text-align:right; color:var(--muted);}
+  .arch-row .as.done{color:var(--good);}
   .rules{text-align:left; max-height:86vh; overflow-y:auto;}
   .rules h2{text-align:center; margin-bottom:14px;}
   .rules .step{display:flex; gap:12px; margin:14px 0; align-items:flex-start;}
@@ -222,7 +241,17 @@
 </style>
 </head>
 <body>
+  <button class="cal-btn" id="calBtn" title="Puzzle archive">📅</button>
   <button class="help-btn" id="helpBtn" title="How to play">?</button>
+
+  <div class="modal" id="archiveModal">
+    <div class="win archive">
+      <h2>Puzzle Archive</h2>
+      <div class="arch-sub">Pick any past day to play it. Only today's solve counts toward your streak.</div>
+      <div class="arch-list" id="archList"></div>
+      <button id="archClose">Close</button>
+    </div>
+  </div>
 
   <header>
     <h1>Currents</h1>
@@ -398,32 +427,38 @@ let tutorialMode=false, tutStep=0;  // scripted interactive tutorial
 const $=id=>document.getElementById(id);
 const gridEl=$("grid"), overlay=$("overlay"), stage=$("stage");
 
-/* ---------------- Puzzle selection (by date) ---------------- */
-function dayNumber(){
-  const epoch=new Date(2026,0,1);
-  return Math.floor((new Date()-epoch)/86400000);
-}
-function todayIndex(){
-  const days=dayNumber();
-  return ((days%PUZZLES.length)+PUZZLES.length)%PUZZLES.length;
+/* ---------------- Puzzle selection (by date) ----------------
+   Day 0 = puzzle #1 = 14 Jun 2026. dayNumber() is today's index; activeDay is
+   whichever day the player has open (today, or one picked from the archive). */
+const EPOCH=new Date(2026,5,14);   // months are 0-based -> 5 = June
+let activeDay=0;
+function dayNumber(){ return Math.floor((new Date()-EPOCH)/86400000); }   // today (0-based)
+function dateForDay(day){ return new Date(EPOCH.getTime()+day*86400000); }
+function puzzleForDay(day){
+  const i=((day%PUZZLES.length)+PUZZLES.length)%PUZZLES.length;
+  return PUZZLES[i];
 }
 
 /* ---------------- Progress persistence ----------------
-   Saved per day so refreshing resumes the in-progress board; a new day
-   (different puzzle) discards the old save automatically.               */
-const SAVE_KEY="currents_progress";
+   One entry per day number, so each archive puzzle keeps its own in-progress
+   board. An entry is only resumed if its stored phrase still matches the puzzle
+   (guards against a puzzle being edited/swapped under a day).               */
+const SAVE_KEY="currents_progress_v2";
+function allSaves(){
+  try{ return JSON.parse(localStorage.getItem(SAVE_KEY)||"{}")||{}; }catch(e){ return {}; }
+}
 function saveState(){
-  if(tutorialMode) return;   // tutorial board must never overwrite the real day's progress
+  if(tutorialMode) return;   // tutorial board must never overwrite real progress
   try{
-    localStorage.setItem(SAVE_KEY, JSON.stringify({day:dayNumber(),phrase,grid,moves,hintLevel,won,history}));
+    const all=allSaves();
+    all[activeDay]={phrase,grid,moves,hintLevel,won,history};
+    localStorage.setItem(SAVE_KEY, JSON.stringify(all));
   }catch(e){ /* localStorage blocked — progress just won't persist */ }
 }
-function loadState(){
+function loadState(day){
   try{
-    const s=JSON.parse(localStorage.getItem(SAVE_KEY)||"null");
-    // resume only if it's the same day AND the same puzzle — if the puzzle was
-    // edited/swapped, the old board no longer matches the clue, so discard it
-    if(s && s.day===dayNumber() && s.phrase===phrase && Array.isArray(s.grid)) return s;
+    const s=allSaves()[day];
+    if(s && s.phrase===phrase && Array.isArray(s.grid)) return s;
   }catch(e){ /* ignore corrupt/blocked storage */ }
   return null;
 }
@@ -629,7 +664,7 @@ function undoMove(){
 }
 function resetBoard(){
   if(won || tutorialMode || moves===0) return;
-  buildGrid(PUZZLES_TODAY);     // deterministically rebuilds the original scrambled start
+  buildGrid(activePuzzle);     // deterministically rebuilds the original scrambled start
   moves=0; history=[]; $("moves").textContent=0;
   trace=null; renderTrace();
   fullRender();
@@ -814,7 +849,7 @@ function winGame(){
   won=true;
   $("hintBtn").disabled=true;
   updateControls();       // lock Undo/Reset once solved
-  recordWin(moves-par);   // count this win / update streak once, at the live win moment
+  if(activeDay===dayNumber()) recordWin(moves-par);   // only the live day affects streak/stats
   saveState();
   animateWin();
 }
@@ -863,7 +898,7 @@ function gradeFor(diff){
 function showWin(){
   const diff=moves-par;
   const [g,col]=gradeFor(diff);
-  $("winPhrase").textContent=PUZZLES_TODAY.words.join(" ");
+  $("winPhrase").textContent=activePuzzle.words.join(" ");
   const gr=$("grade"); gr.textContent=g;
   gr.style.background=col+"22"; gr.style.color=col; gr.style.border="1px solid "+col;
   $("winScore").textContent=moves+" moves";
@@ -880,7 +915,7 @@ function showWin(){
     `<span class="gd${k===curKey?" cur":""}">${l} <b>${s.dist[k]||0}</b></span>`).join("");
 
   const dots = diff<=0 ? "🟢".repeat(Math.max(1,moves)) : "🟢".repeat(par)+"⚪".repeat(diff);
-  $("share").textContent=`Currents #${dayNumber()+1} ${"★".repeat(starRating)}\n${g} · ${moves}/${par} · 🔥${s.currentStreak}\n${dots}`;
+  $("share").textContent=`Currents #${activeDay+1} ${"★".repeat(starRating)}\n${g} · ${moves}/${par} · 🔥${s.currentStreak}\n${dots}`;
   $("modal").classList.add("show");
 }
 
@@ -933,6 +968,29 @@ $("modal").addEventListener("click",e=>{ if(e.target.id==="modal") $("modal").cl
 $("helpBtn").addEventListener("click",()=>$("rulesModal").classList.add("show"));
 $("rulesClose").addEventListener("click",()=>$("rulesModal").classList.remove("show"));
 $("rulesModal").addEventListener("click",e=>{ if(e.target.id==="rulesModal") $("rulesModal").classList.remove("show"); });
+
+/* ---------------- Puzzle archive ---------------- */
+function buildArchive(){
+  const today=Math.max(0,dayNumber());
+  const saves=allSaves();
+  const list=$("archList"); list.innerHTML="";
+  for(let day=today; day>=0; day--){                 // newest first, back to #1
+    const s=saves[day];
+    const solved = s && s.won;
+    const started = s && !s.won && (s.moves>0 || (s.history && s.history.length));
+    const row=document.createElement("button");
+    row.className="arch-row"+(day===activeDay?" current":"");
+    const dstr=dateForDay(day).toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"});
+    const badge = day===today ? `<span class="atoday">Today</span>` : "";
+    const status = solved ? `<span class="as done">✓</span>` : started ? `<span class="as">▶</span>` : `<span class="as"></span>`;
+    row.innerHTML=`<span class="an">#${day+1}</span><span class="ad">${dstr}</span>${badge}${status}`;
+    row.addEventListener("click",()=>{ $("archiveModal").classList.remove("show"); loadDay(day); });
+    list.appendChild(row);
+  }
+}
+$("calBtn").addEventListener("click",()=>{ if(tutorialMode) return; buildArchive(); $("archiveModal").classList.add("show"); });
+$("archClose").addEventListener("click",()=>$("archiveModal").classList.remove("show"));
+$("archiveModal").addEventListener("click",e=>{ if(e.target.id==="archiveModal") $("archiveModal").classList.remove("show"); });
 // first-time players get the interactive tutorial (launched after init, below)
 
 let toastTimer;
@@ -941,9 +999,6 @@ function toast(msg,bad){
   t.className="toast show"+(bad?" bad":"");
   clearTimeout(toastTimer);
   toastTimer=setTimeout(()=>t.className="toast",1800);
-}
-function dateStr(){
-  return new Date().toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"});
 }
 
 /* ---------------- Interactive tutorial ----------------
@@ -1080,27 +1135,29 @@ $("coachSkip").addEventListener("click",endTutorial);
 $("replayTut").addEventListener("click",startTutorial);
 
 /* ---------------- Init ---------------- */
-let PUZZLES_TODAY;
+let activePuzzle;
 function init(){
-  PUZZLES_TODAY=PUZZLES[todayIndex()];
-  $("dateLabel").textContent="DAILY CIRCUIT · "+dateStr().toUpperCase();
-  $("clue").textContent=PUZZLES_TODAY.clue;
+  activePuzzle=puzzleForDay(activeDay);
+  const isToday=activeDay===dayNumber();
+  const dlabel=dateForDay(activeDay).toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"});
+  $("dateLabel").textContent=`PUZZLE #${activeDay+1} · ${dlabel.toUpperCase()}`+(isToday?" · TODAY":"");
+  $("clue").textContent=activePuzzle.clue;
   // blanks
   const b=$("blanks"); b.innerHTML="";
-  PUZZLES_TODAY.words.forEach(w=>{
+  activePuzzle.words.forEach(w=>{
     const wd=document.createElement("div"); wd.className="word";
     for(let i=0;i<w.length;i++){const s=document.createElement("div");s.className="blank";wd.appendChild(s);}
     b.appendChild(wd);
   });
   const cnt=document.createElement("span"); cnt.className="count";
-  cnt.textContent="("+PUZZLES_TODAY.words.map(w=>w.length).join(", ")+")";
+  cnt.textContent="("+activePuzzle.words.map(w=>w.length).join(", ")+")";
   b.appendChild(cnt);
 
-  buildGrid(PUZZLES_TODAY);
+  buildGrid(activePuzzle);
   $("par").textContent=par; renderDifficulty();
 
-  // resume in-progress board if the player already started today's puzzle
-  const saved=loadState();
+  // resume in-progress board if this day was already started
+  const saved=loadState(activeDay);
   if(saved){
     grid=saved.grid; moves=saved.moves; hintLevel=saved.hintLevel; won=saved.won;
     history=Array.isArray(saved.history)?saved.history:[];
@@ -1117,8 +1174,18 @@ function init(){
   fullRender();
   updateControls();
 
-  if(won) showWin(); // already solved today — show the result instead of replaying
+  if(won) showWin(); // already solved — show the result instead of replaying
 }
+/* Switch the board to a given puzzle day (from the archive). */
+function loadDay(day){
+  if(tutorialMode) return;
+  activeDay=day;
+  $("modal").classList.remove("show");
+  mode="shift"; document.body.classList.remove("trace-mode"); $("traceBtn").classList.remove("on");
+  trace=null;
+  init();
+}
+activeDay=Math.max(0,dayNumber());   // default to today (clamped to launch day #1)
 init();
 
 // First visit: launch the interactive tutorial once (over the now-ready real board).
