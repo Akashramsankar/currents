@@ -392,63 +392,84 @@
 const PUZZLES = [
   { clue:"When you're having fun, this passes fast.",
     words:["TIME","FLIES"], decoys:"QBRKXWZ",
-    scramble:[["row",0,1],["col",3,-1],["row",2,1],["col",1,1]] },
+    path:[[0,0],[0,1],[0,2],[0,3],[1,3],[1,2],[1,1],[1,0],[2,0]],
+    scramble:[["row",1,-1],["col",1,-1],["col",0,1],["row",2,-1]] },
   { clue:"Friends gather round the table to play.",
     words:["GAME","NIGHT"], decoys:"PVZKWXJ",
-    scramble:[["col",0,1],["row",1,-1],["col",2,1],["row",3,1],["col",1,-1]] },
+    path:[[0,3],[0,2],[0,1],[0,0],[1,0],[1,1],[1,2],[1,3],[2,3]],
+    scramble:[["col",1,1],["row",2,-1],["row",3,-1],["col",2,1],["row",1,1],["col",0,1]] },
   { clue:"Colourful explosions that light up the night sky.",
     words:["FIRE","WORKS"], decoys:"BTNPLDG",
-    scramble:[["row",0,1],["col",2,1],["row",2,-1]] },
+    path:[[3,0],[2,0],[1,0],[0,0],[0,1],[1,1],[2,1],[3,1],[3,2]],
+    scramble:[["row",3,1],["row",0,1],["col",0,1]] },
   { clue:"An unbeatable line-up of all-stars.",
     words:["DREAM","TEAM"], decoys:"PKWXZQB",
-    scramble:[["col",2,1],["row",0,1],["col",0,-1],["row",3,-1],["row",1,1]] },
+    path:[[3,3],[3,2],[3,1],[3,0],[2,0],[2,1],[2,2],[2,3],[1,3]],
+    scramble:[["col",3,-1],["col",2,1],["row",2,1],["row",3,-1],["row",0,-1]] },
   { clue:"The pale glow that lights up a clear night sky.",
     words:["MOON","LIGHT"], decoys:"BCDFKPV",
-    scramble:[["col",0,-1],["col",2,-1],["col",1,1],["row",3,1]] },
+    path:[[3,3],[3,2],[3,1],[3,0],[2,0],[1,0],[0,0],[0,1],[0,2]],
+    scramble:[["row",3,1],["col",1,1],["col",2,-1],["col",3,1]] },
   { clue:"Tall golden bloom that turns to face the sun.",
     words:["SUN","FLOWER"], decoys:"BCDGHKM",
-    scramble:[["col",1,-1],["row",2,-1],["col",2,1],["row",3,-1]] },
+    path:[[3,0],[3,1],[3,2],[3,3],[2,3],[1,3],[0,3],[0,2],[0,1]],
+    scramble:[["col",1,-1],["row",2,-1],["row",0,-1],["col",3,1]] },
   { clue:"The twinkle from a distant sun at night.",
     words:["STAR","LIGHT"], decoys:"QXZJVKW",
-    scramble:[["row",1,-1],["col",2,-1],["col",3,-1]] },
+    path:[[0,0],[0,1],[0,2],[0,3],[1,3],[1,2],[1,1],[1,0],[2,0]],
+    scramble:[["col",0,1],["row",3,1],["col",0,-1]] },
   { clue:"Crackling blazes you gather around outdoors.",
     words:["CAMP","FIRES"], decoys:"QXZJVKW",
-    scramble:[["row",3,1],["col",2,-1],["row",0,1],["col",2,1],["row",0,1]] },
+    path:[[0,3],[0,2],[0,1],[0,0],[1,0],[1,1],[1,2],[1,3],[2,3]],
+    scramble:[["col",2,-1],["col",0,-1],["row",2,1],["col",3,-1]] },
   { clue:"A region of space that nothing escapes.",
     words:["BLACK","HOLE"], decoys:"QXZJVWP",
-    scramble:[["col",0,-1],["row",1,-1],["col",2,1],["row",3,-1],["row",2,1]] },
+    path:[[3,0],[2,0],[1,0],[0,0],[0,1],[1,1],[2,1],[3,1],[3,2]],
+    scramble:[["col",3,1],["row",3,1],["col",1,1],["col",2,1],["col",0,-1],["row",1,-1]] },
   { clue:"Rows of tall yellow crops on a farm.",
     words:["CORN","FIELD"], decoys:"QXZJVKW",
-    scramble:[["row",3,1],["row",0,-1],["col",3,-1],["row",3,-1],["col",2,-1]] },
+    path:[[3,3],[3,2],[3,1],[3,0],[2,0],[2,1],[2,2],[2,3],[1,3]],
+    scramble:[["row",1,1],["col",1,-1],["col",0,1],["row",2,1]] },
   { clue:"A grey sky bringing a steady shower.",
     words:["RAIN","CLOUD"], decoys:"QXZJVKW",
-    scramble:[["col",1,1],["col",0,-1],["row",2,1]] },
+    path:[[3,3],[3,2],[3,1],[3,0],[2,0],[1,0],[0,0],[0,1],[0,2]],
+    scramble:[["col",2,-1],["col",0,1],["col",1,1]] },
   { clue:"A river plunging over a rocky ledge.",
     words:["WATER","FALL"], decoys:"QXZJVKB",
-    scramble:[["row",0,1],["col",3,1],["row",0,-1],["row",2,1]] },
+    path:[[3,0],[3,1],[3,2],[3,3],[2,3],[1,3],[0,3],[0,2],[0,1]],
+    scramble:[["row",1,-1],["row",0,-1],["col",2,-1],["col",0,-1]] },
   { clue:"The moment dusk gives way to dark.",
     words:["NIGHT","FALL"], decoys:"QXZJVKW",
-    scramble:[["row",1,-1],["col",2,-1],["row",0,-1],["col",1,-1],["col",2,-1]] },
+    path:[[0,0],[0,1],[0,2],[0,3],[1,3],[1,2],[1,1],[1,0],[2,0]],
+    scramble:[["row",0,-1],["row",2,1],["col",3,-1],["col",0,1],["col",2,1]] },
   { clue:"A wriggly creature that aerates garden soil.",
     words:["EARTH","WORM"], decoys:"QXZJVKB",
-    scramble:[["row",0,-1],["col",1,1],["row",2,-1],["col",3,1]] },
+    path:[[0,3],[0,2],[0,1],[0,0],[1,0],[1,1],[1,2],[1,3],[2,3]],
+    scramble:[["row",2,-1],["col",0,-1],["row",0,1],["col",3,1]] },
   { clue:"Where you line up your novels at home.",
     words:["BOOK","SHELF"], decoys:"QXZJVWP",
-    scramble:[["col",3,-1],["row",1,-1],["col",2,-1]] },
+    path:[[3,0],[2,0],[1,0],[0,0],[0,1],[1,1],[2,1],[3,1],[3,2]],
+    scramble:[["col",3,-1],["col",2,-1],["col",0,1],["row",1,-1]] },
   { clue:"A drifting sea creature with stinging tentacles.",
     words:["JELLY","FISH"], decoys:"QXZVKWB",
-    scramble:[["row",1,1],["row",3,-1],["col",1,-1],["row",2,1],["col",3,-1]] },
+    path:[[3,3],[3,2],[3,1],[3,0],[2,0],[2,1],[2,2],[2,3],[1,3]],
+    scramble:[["col",0,1],["row",3,1],["row",1,1],["row",2,1],["row",0,1]] },
   { clue:"A fierce winter blizzard of white.",
     words:["SNOW","STORM"], decoys:"QXZJVKB",
-    scramble:[["col",1,-1],["col",0,1],["row",1,-1],["col",0,1],["row",2,1],["col",3,-1]] },
+    path:[[3,3],[3,2],[3,1],[3,0],[2,0],[1,0],[0,0],[0,1],[0,2]],
+    scramble:[["row",1,-1],["col",2,-1],["row",0,1],["col",3,-1],["col",0,-1]] },
   { clue:"Tall blades that turn the breeze into power.",
     words:["WIND","MILLS"], decoys:"QXZJVKB",
-    scramble:[["row",1,1],["col",1,-1],["col",2,-1],["row",2,-1]] },
+    path:[[3,0],[3,1],[3,2],[3,3],[2,3],[1,3],[0,3],[0,2],[0,1]],
+    scramble:[["col",3,-1],["col",1,1],["row",0,1],["col",2,1]] },
 ];
 
-/* Fixed solved layout: a continuous, non-crossing orthogonal path of 9 cells
-   (the intended trace). Targets go here in phrase order; decoys fill the rest. */
-const PATH = [[0,0],[0,1],[0,2],[0,3],[1,3],[1,2],[1,1],[1,0],[2,0]];
+/* Solved layout: a continuous, non-crossing orthogonal path of 9 cells (the
+   intended trace). Targets go here in phrase order; decoys fill the rest. Each
+   puzzle carries its own `path` (varied start corner + shape) so solutions don't
+   all begin top-left; PATH is set to the active puzzle's path in buildGrid. */
+const DEFAULT_PATH = [[0,0],[0,1],[0,2],[0,3],[1,3],[1,2],[1,1],[1,0],[2,0]];
+let PATH = DEFAULT_PATH;
 
 const PITCH=78, CELL=70, SPAN=304, TOTAL=4*PITCH;
 /* Par = the true optimal solve (fewest moves, found by BFS in buildGrid) + this
@@ -534,6 +555,7 @@ function recordWin(diff){
 }
 
 function buildGrid(p){
+  PATH = p.path || DEFAULT_PATH;     // this puzzle's trace path drives placement, sparks, solve-check
   phrase=p.words.join("").toUpperCase();
   const letters=phrase.split("");
   // index of the last letter of each word (except the final one): a spark sitting
