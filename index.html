@@ -369,6 +369,7 @@
         <div class="sdist" id="stDist"></div>
       </div>
       <div class="share" id="share"></div>
+      <button id="retryBtn">Try for fewer moves</button>
       <button id="copyBtn">Share Result</button>
     </div>
   </div>
@@ -709,7 +710,7 @@ function updateControls(){
   // Undo needs a move to revert; Reset needs the board to be off its start.
   const ub=$("undoBtn"), rb=$("resetBtn");
   if(ub) ub.disabled = won || tutorialMode || history.length===0;
-  if(rb) rb.disabled = won || tutorialMode || moves===0;
+  if(rb) rb.disabled = tutorialMode || moves===0;
 }
 function undoMove(){
   if(won || tutorialMode || history.length===0) return;
@@ -721,9 +722,12 @@ function undoMove(){
   updateControls();
 }
 function resetBoard(){
-  if(won || tutorialMode || moves===0) return;
+  if(tutorialMode || moves===0) return;
+  $("modal").classList.remove("show");
   buildGrid(activePuzzle);     // deterministically rebuilds the original scrambled start
+  won=false;
   moves=0; history=[]; $("moves").textContent=0;
+  $("hintBtn").disabled=false;
   fullRender();
   saveState();
   updateControls();
@@ -931,6 +935,7 @@ $("hintBtn").addEventListener("click",()=>{
 });
 $("undoBtn").addEventListener("click",undoMove);
 $("resetBtn").addEventListener("click",resetBoard);
+$("retryBtn").addEventListener("click",resetBoard);
 async function shareResult(){
   const text=$("share").textContent;
   // native share sheet on supported devices (mostly mobile)
