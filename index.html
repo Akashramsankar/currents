@@ -279,9 +279,9 @@
         <b>Stuck?</b> <span>The Hint button reveals one answer letter at a time.</span></div></div>
 
       <div class="step"><div class="ic">⛳</div><div class="t">
-        <b>Beat Par.</b> <span>Par is the target number of moves, set from the puzzle's fastest possible solve.
-        Solve it in fewer for a Birdie or Eagle! The <b style="color:var(--gold)">★ stars</b> by the clue rate
-        how tough today's puzzle is.</span></div></div>
+        <b>Beat Par.</b> <span>Par is the target number of moves for the day, set a little above the best possible
+        solve while Currents is still tough. Finish under it for a Birdie or Eagle. The
+        <b style="color:var(--gold)">★ stars</b> by the clue rate how tough today's puzzle is.</span></div></div>
 
       <button id="rulesClose">Got it — let's play</button>
       <button id="replayTut" class="replay">▶ Replay interactive tutorial</button>
@@ -903,9 +903,9 @@ function showWin(){
   gr.style.background=col+"22"; gr.style.color=col; gr.style.border="1px solid "+col;
   $("winScore").textContent=moves+" moves";
   $("breakdown").textContent=
-    diff===0?"Perfectly efficient — dead on Par.":
+    diff===0?"Right on target — dead on Par.":
     diff<0?`You beat Par by ${-diff} move${diff<-1?"s":""}!`:
-    `${diff} over Par — you got there in the end.`;
+    `${diff} over Par — still a clear for today.`;
   // stats panel
   const s=loadStats(), curKey=gradeKey(diff);
   $("stPlayed").textContent=s.played;
@@ -1086,7 +1086,7 @@ function tutWin(){
   setTimeout(()=>{ gridEl.classList.add("celebrate"); [...$("blanks").children].forEach(w=>w.classList.add("solved")); }, DRAW);
   setTimeout(()=>{
     dimAllArrows();   // keep the finished board untouchable behind the final coach card
-    coach("You've got it! 🎉","That's the whole game: <b>slide</b> to line up, watch the <b>sparks</b> confirm the chain, and once the full answer connects, Currents completes it for you. Beat Par for a Birdie or Eagle.",
+    coach("You've got it! 🎉","That's the whole game: <b>slide</b> to line up, watch the <b>sparks</b> confirm the chain, and once the full answer connects, Currents completes it for you. Par is today's target, and finishing under it earns a Birdie or Eagle.",
       {next:"Play today's puzzle",prog:TUT_TOTAL+" / "+TUT_TOTAL});
   }, DRAW+700);
 }
