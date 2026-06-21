@@ -82,9 +82,7 @@
     background:linear-gradient(180deg,#3a45ff,#2a32c4);
     color:#fff; box-shadow:0 0 16px rgba(108,123,255,.8); border-color:#8d97ff;
   }
-  body.trace-mode .tile{cursor:crosshair;}
-
-  /* SVG overlay for sparks + trace */
+  /* SVG overlay for sparks + victory circuit */
   #overlay{position:absolute; inset:0; pointer-events:none; z-index:4;}
   .spark{stroke:var(--spark); stroke-width:5; stroke-linecap:round;
     filter:drop-shadow(0 0 6px var(--spark)); opacity:.9;
@@ -94,8 +92,6 @@
   .spark.jump{stroke:var(--jump); filter:drop-shadow(0 0 7px var(--jump));
     marker-end:url(#jumpArrow);}
   @keyframes pulse{0%,100%{opacity:.55}50%{opacity:1}}
-  .tracepath{stroke:var(--trace); stroke-width:10; stroke-linecap:round; stroke-linejoin:round;
-    fill:none; filter:drop-shadow(0 0 8px var(--trace));}
   /* victory circuit */
   .winline{stroke:url(#winGrad); stroke-width:12; stroke-linecap:round; stroke-linejoin:round;
     fill:none; filter:drop-shadow(0 0 12px var(--good));}
@@ -122,8 +118,6 @@
     font-size:13px; z-index:6; opacity:.55; transition:.15s;
   }
   .arrow:hover{opacity:1; color:var(--spark); border-color:var(--spark); transform:scale(1.12);}
-  body.trace-mode .arrow{display:none;}
-
   .controls{display:flex; gap:10px; width:min(420px,94vw);}
   button.act{
     flex:1; padding:12px; border-radius:12px; border:1px solid var(--line);
@@ -236,8 +230,6 @@
   .arrow.spot{opacity:1!important; color:var(--spark); border-color:var(--spark);
     z-index:10; animation:tutpulse 1.2s ease-in-out infinite;}
   .arrow.tut-dim{opacity:.1!important; pointer-events:none;}
-  .tile.tut-start{box-shadow:0 0 0 2px var(--gold), 0 0 18px rgba(255,207,77,.7);
-    border-color:var(--gold); color:#ffe9a8;}
 </style>
 </head>
 <body>
@@ -261,8 +253,8 @@
   <div class="modal" id="rulesModal">
     <div class="win rules">
       <h2>How to Play</h2>
-      <div class="goal">🎯 <b>Goal:</b> Today's clue has a hidden answer. Slide the grid to line up the
-        answer's letters, then trace them in one unbroken line — in as few moves as possible.</div>
+      <div class="goal">🎯 <b>Goal:</b> Today's clue has a hidden answer. Slide the grid until the
+        answer's letters click into one unbroken line — Currents will complete the circuit automatically.</div>
 
       <div class="step"><div class="ic">📖</div><div class="t">
         <b>Read the clue.</b> <span>The blanks below it show how many letters each word has, e.g. (4, 5).</span></div></div>
@@ -274,14 +266,14 @@
       <div class="step"><div class="ic">⚡</div><div class="t">
         <b>Follow the sparks.</b> <span>A glowing line appears between two neighbouring tiles when they're
         next to each other in the answer. Its <b>arrow</b> points from the earlier letter to the next, showing
-        which way to trace. A <span style="color:var(--jump)">violet spark</span> means that link jumps from the
+        which way the phrase flows. A <span style="color:var(--jump)">violet spark</span> means that link jumps from the
         end of one word to the start of the next. Use them to line up the whole phrase into one connected chain.
         <b>Repeated letters?</b> Sparks mark only the <b>correct</b> copy — if a letter sits next to the right
         neighbour but stays dark, it's the wrong one for that spot.</span></div></div>
 
-      <div class="step"><div class="ic">✏️</div><div class="t">
-        <b>Trace the answer.</b> <span>Tap "⚡ Trace Phrase", then drag from the first letter to the last —
-        up, down, left or right only (no diagonals, no reusing a tile). Spell the answer to win.</span></div></div>
+      <div class="step"><div class="ic">✨</div><div class="t">
+        <b>Complete the circuit.</b> <span>Once every answer letter connects in order, the board
+        auto-completes with a glow. No extra tracing step needed.</span></div></div>
 
       <div class="step"><div class="ic">💡</div><div class="t">
         <b>Stuck?</b> <span>The Hint button reveals one answer letter at a time.</span></div></div>
@@ -335,7 +327,6 @@
   </div>
 
   <div class="controls">
-    <button class="act" id="traceBtn">⚡ Trace Phrase</button>
     <button class="act" id="hintBtn">💡 Hint</button>
   </div>
   <div class="controls">
@@ -345,9 +336,9 @@
 
   <div class="hint" id="modeHint">
     Swipe rows &amp; columns (or tap the edge arrows) to line up letters. Watch for glowing
-    <span style="color:var(--spark)">sparks</span> — their arrows show the trace direction, and a
-    <span style="color:var(--jump)">violet spark</span> bridges two words. With repeated letters, only the
-    correct copy sparks.
+    <span style="color:var(--spark)">sparks</span> — their arrows show the phrase direction, and a
+    <span style="color:var(--jump)">violet spark</span> bridges two words. Once the whole answer connects,
+    Currents completes the circuit automatically.
   </div>
 
   <div class="coach" id="coach">
@@ -482,7 +473,6 @@ let phrase;          // letters only, e.g. "TIMEFLIES"
 let wordBreaks;      // set of phrase indices whose spark crosses into the next word
 let moves=0, par=0, starRating=1;   // starRating: 1–5 difficulty, from the optimal solve
 let history=[];      // stack of applied moves {type,i,dir,count} for Undo
-let mode="shift";    // or "trace"
 let hintLevel=0;     // how many target letters revealed (0..9)
 let won=false;
 let tutorialMode=false, tutStep=0;  // scripted interactive tutorial
@@ -501,11 +491,15 @@ function puzzleForDay(day){
   const i=((day%PUZZLES.length)+PUZZLES.length)%PUZZLES.length;
   return PUZZLES[i];
 }
+/* A full identity for a puzzle: word + path + scramble. If ANY of these change
+   (e.g. a puzzle is re-authored), the signature changes and old saved progress
+   for that day is discarded — so an edited puzzle never resumes a stale board. */
+function sigOf(p){ return p.words.join("")+"|"+JSON.stringify(p.path||DEFAULT_PATH)+"|"+JSON.stringify(p.scramble); }
 
 /* ---------------- Progress persistence ----------------
    One entry per day number, so each archive puzzle keeps its own in-progress
-   board. An entry is only resumed if its stored phrase still matches the puzzle
-   (guards against a puzzle being edited/swapped under a day).               */
+   board. An entry is only resumed if its stored signature still matches the
+   puzzle for that day (guards against a puzzle being edited/swapped/re-rolled). */
 const SAVE_KEY="currents_progress_v2";
 function allSaves(){
   try{ return JSON.parse(localStorage.getItem(SAVE_KEY)||"{}")||{}; }catch(e){ return {}; }
@@ -514,14 +508,14 @@ function saveState(){
   if(tutorialMode) return;   // tutorial board must never overwrite real progress
   try{
     const all=allSaves();
-    all[activeDay]={phrase,grid,moves,hintLevel,won,history};
+    all[activeDay]={sig:sigOf(activePuzzle),grid,moves,hintLevel,won,history};
     localStorage.setItem(SAVE_KEY, JSON.stringify(all));
   }catch(e){ /* localStorage blocked — progress just won't persist */ }
 }
 function loadState(day){
   try{
     const s=allSaves()[day];
-    if(s && s.phrase===phrase && Array.isArray(s.grid)) return s;
+    if(s && s.sig===sigOf(puzzleForDay(day)) && Array.isArray(s.grid)) return s;
   }catch(e){ /* ignore corrupt/blocked storage */ }
   return null;
 }
@@ -700,13 +694,14 @@ function renderSparks(){
 
 /* ---------------- Move counting ---------------- */
 function doMove(type,i,dir,count=1){
+  if(won) return;
   for(let k=0;k<count;k++) shift(type,i,dir);
   moves++; $("moves").textContent=moves;
   if(!tutorialMode) history.push({type,i,dir,count});   // record for Undo
   fullRender();
   saveState();
   updateControls();
-  if(tutorialMode) tutOnMove();
+  if(isSolved()) winGame();
 }
 
 /* ---------------- Undo / Reset ---------------- */
@@ -721,7 +716,6 @@ function undoMove(){
   const m=history.pop();
   for(let k=0;k<m.count;k++) shift(m.type,m.i,-m.dir);   // inverse shift, same count
   moves--; $("moves").textContent=moves;
-  trace=null; renderTrace();   // any in-progress trace is no longer valid
   fullRender();
   saveState();
   updateControls();
@@ -730,7 +724,6 @@ function resetBoard(){
   if(won || tutorialMode || moves===0) return;
   buildGrid(activePuzzle);     // deterministically rebuilds the original scrambled start
   moves=0; history=[]; $("moves").textContent=0;
-  trace=null; renderTrace();
   fullRender();
   saveState();
   updateControls();
@@ -760,9 +753,8 @@ function buildArrows(){
   }
 }
 
-/* ---------------- Pointer: shift (drag) + trace ---------------- */
+/* ---------------- Pointer: shift (drag) ---------------- */
 let drag=null;   // {axis,index,startX,startY,ghosts,laneTiles}
-let trace=null;  // {cells:[[r,c]], poly}
 
 function localPos(e){
   const rect=gridEl.getBoundingClientRect();
@@ -777,24 +769,20 @@ function cellFromPos(x,y){
 }
 
 gridEl.addEventListener("pointerdown",e=>{
-  if(won) return;
-  if(tutorialMode && mode!=="trace") return; // during scripted steps only the spotlight arrow drives the board
+  if(won || tutorialMode) return;
   const [x,y]=localPos(e);
   const rc=cellFromPos(x,y); if(!rc) return;
   gridEl.setPointerCapture(e.pointerId);
-  if(mode==="trace"){ startTrace(rc); }
-  else { startDrag(rc,x,y); }
+  startDrag(rc,x,y);
 });
 gridEl.addEventListener("pointermove",e=>{
   const [x,y]=localPos(e);
-  if(mode==="trace" && trace){ moveTrace(x,y); }
-  else if(drag){ moveDrag(x,y); }
+  if(drag) moveDrag(x,y);
 });
 gridEl.addEventListener("pointerup",e=>{
-  if(mode==="trace" && trace){ endTrace(); }
-  else if(drag){ endDrag(); }
+  if(drag) endDrag();
 });
-gridEl.addEventListener("pointercancel",()=>{ if(drag) cancelDrag(); trace=null; renderTrace(); });
+gridEl.addEventListener("pointercancel",()=>{ if(drag) cancelDrag(); });
 
 /* --- shift drag --- */
 function startDrag(rc,x,y){ drag={axis:null,index:null,r:rc[0],c:rc[1],startX:x,startY:y,ghosts:[]}; }
@@ -857,56 +845,6 @@ function cancelDrag(){
   drag=null; fullRender();
 }
 
-/* --- trace --- */
-function startTrace(rc){ trace={cells:[rc]}; renderTrace(); }
-function moveTrace(x,y){
-  if(!trace || won) return;
-  const rc=cellFromPos(x,y); if(!rc) return;
-  const cells=trace.cells; const last=cells[cells.length-1];
-  if(rc[0]===last[0]&&rc[1]===last[1]) return;
-  // backtrack: stepping onto previous cell removes the last
-  if(cells.length>=2){
-    const prev=cells[cells.length-2];
-    if(rc[0]===prev[0]&&rc[1]===prev[1]){ cells.pop(); renderTrace(); return; }
-  }
-  // must be orthogonally adjacent and unused
-  const adj=Math.abs(rc[0]-last[0])+Math.abs(rc[1]-last[1])===1;
-  const used=cells.some(([r,c])=>r===rc[0]&&c===rc[1]);
-  if(adj && !used){
-    cells.push(rc); renderTrace();
-    // lock in the win the instant the full word is spelled — don't let the line continue
-    if(cells.length===phrase.length && cells.map(([r,c])=>grid[r][c].ch).join("")===phrase){
-      winGame();      // reads trace.cells synchronously for the win animation
-      trace=null;     // stop extending the trace past the completed word
-    }
-  }
-}
-function renderTrace(){
-  tileEls.forEach(t=>t.classList.remove("in-path"));
-  [...overlay.querySelectorAll(".tracepath")].forEach(p=>p.remove());
-  if(!trace || trace.cells.length===0) return;
-  let pts="";
-  trace.cells.forEach(([r,c])=>{
-    const [x,y]=center(r,c); pts+=`${x},${y} `;
-    const t=tileAt(r,c); if(t) t.classList.add("in-path");
-  });
-  if(trace.cells.length>1){
-    const pl=document.createElementNS("http://www.w3.org/2000/svg","polyline");
-    pl.setAttribute("class","tracepath");
-    pl.setAttribute("points",pts.trim());
-    overlay.appendChild(pl);
-  }
-}
-function endTrace(){
-  if(!trace){return;}
-  const spelled=trace.cells.map(([r,c])=>grid[r][c].ch).join("");
-  if(spelled===phrase){ winGame(); }
-  else {
-    if(trace.cells.length>1) toast("Not quite — keep shifting.", true);
-    trace=null; renderTrace();
-  }
-}
-
 /* ---------------- Win ---------------- */
 function winGame(){
   if(tutorialMode){ tutWin(); return; }
@@ -918,9 +856,7 @@ function winGame(){
   animateWin();
 }
 function animateWin(){
-  const cells=trace.cells.slice();
-  // remove the in-progress blue trace; fade existing sparks
-  [...overlay.querySelectorAll(".tracepath")].forEach(p=>p.remove());
+  const cells=PATH.slice();
   [...overlay.querySelectorAll(".spark")].forEach(s=>s.classList.add("fading"));
   // fade out decoy tiles ("clear away the decoys")
   tileEls.forEach(t=>{ if(!grid[+t.dataset.r][+t.dataset.c].target) t.classList.add("cleared"); });
@@ -984,15 +920,6 @@ function showWin(){
 }
 
 /* ---------------- UI wiring ---------------- */
-$("traceBtn").addEventListener("click",()=>{
-  mode = mode==="trace" ? "shift" : "trace";
-  document.body.classList.toggle("trace-mode", mode==="trace");
-  $("traceBtn").classList.toggle("on", mode==="trace");
-  $("modeHint").innerHTML = mode==="trace"
-    ? 'Press the first letter and drag tile-to-tile (no diagonals, no crossing) to spell the phrase.'
-    : 'Swipe rows &amp; columns (or tap the edge arrows) to line up letters. Follow each <span style="color:var(--spark)">spark</span> arrow — a <span style="color:var(--jump)">violet</span> one bridges two words. With repeated letters, only the correct copy sparks.';
-  if(mode!=="trace"){ trace=null; renderTrace(); }
-});
 $("hintBtn").addEventListener("click",()=>{
   if(hintLevel>=9){ toast("All 9 letters already revealed."); return; }
   hintLevel++;
@@ -1040,8 +967,9 @@ function buildArchive(){
   const list=$("archList"); list.innerHTML="";
   for(let day=today; day>=0; day--){                 // newest first, back to #1
     const s=saves[day];
-    const solved = s && s.won;
-    const started = s && !s.won && (s.moves>0 || (s.history && s.history.length));
+    const valid = s && s.sig===sigOf(puzzleForDay(day));   // ignore stale saves from re-rolled puzzles
+    const solved = valid && s.won;
+    const started = valid && !s.won && (s.moves>0 || (s.history && s.history.length));
     const row=document.createElement("button");
     row.className="arch-row"+(day===activeDay?" current":"");
     const dstr=dateForDay(day).toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"});
@@ -1068,21 +996,21 @@ function toast(msg,bad){
 /* ---------------- Interactive tutorial ----------------
    A dedicated 9-letter board ("WORD GAMES") that is NOT part of the daily
    rotation, so replaying it never spoils a real puzzle. It drives the live
-   engine (shift / sparks / trace) one scripted step at a time. tutorialMode
-   gates saveState / winGame / grid-drag so nothing leaks into the real game. */
+   engine (shift / sparks / auto-finish) one scripted step at a time.
+   tutorialMode gates saveState / winGame / grid-drag so nothing leaks into
+   the real game. */
 const TUTORIAL = {
   clue:"A puzzle you play with letters.",
   words:["WORD","GAMES"], decoys:"KXVPZBJ",
   scramble:[["row",0,1]]   // one shift to undo -> Par 1, single guided move
 };
-const TUT_TOTAL=5;
+const TUT_TOTAL=4;
 
 function isSolved(){ return PATH.every(([r,c],i)=> grid[r][c].ch===phrase[i]); }
 
 function clearTutHighlights(){
   document.querySelectorAll(".tut-highlight").forEach(e=>e.classList.remove("tut-highlight"));
   document.querySelectorAll(".arrow").forEach(e=>e.classList.remove("spot","tut-dim"));
-  document.querySelectorAll(".tile.tut-start").forEach(e=>e.classList.remove("tut-start"));
 }
 function dimAllArrows(){ document.querySelectorAll(".arrow").forEach(a=>a.classList.add("tut-dim")); }
 
@@ -1099,9 +1027,7 @@ function startTutorial(){
   $("rulesModal").classList.remove("show");
   $("modal").classList.remove("show");
   tutorialMode=true; tutStep=0; won=false; moves=0; hintLevel=0;
-  mode="shift"; document.body.classList.remove("trace-mode");
-  $("traceBtn").classList.remove("on");
-  $("traceBtn").disabled=true; $("hintBtn").disabled=true; $("hintBtn").classList.remove("on");
+  $("hintBtn").disabled=true; $("hintBtn").classList.remove("on");
   $("hintBtn").textContent="💡 Hint";
   history=[]; $("undoBtn").disabled=true; $("resetBtn").disabled=true;  // tutorial drives the board itself
   // load the tutorial board over the real one (never saved)
@@ -1136,26 +1062,16 @@ function doStep(step){
   }else if(step===2){
     const arrow=stage.querySelector('[data-act="row-0--1"]');
     if(arrow){ arrow.classList.remove("tut-dim"); arrow.classList.add("spot"); }
-    coach("Slide to line up","The letters are scrambled. Slide a row or column and they wrap around the edges. <b>Tap the glowing arrow</b> to slide the top row into place.",
+    coach("Slide to line up","The letters are scrambled. Slide a row or column and they wrap around the edges. <b>Tap the glowing arrow</b> to slide the top row into place. Once the full answer connects, the circuit completes automatically.",
       {prog:"3 / "+TUT_TOTAL});
-  }else if(step===3){
-    coach("Follow the sparks","Lined up! Those glowing <b>sparks</b> link neighbouring letters of the answer, and each <b>arrow</b> shows which way to trace. A <span style='color:var(--jump)'>violet</span> spark bridges the end of one word to the next.",
-      {next:"Trace it",prog:"4 / "+TUT_TOTAL});
-  }else if(step===4){
-    mode="trace"; document.body.classList.add("trace-mode"); $("traceBtn").classList.add("on");
-    const [r,c]=PATH[0]; const t=tileAt(r,c); if(t) t.classList.add("tut-start");
-    coach("Trace the answer","Press the <b>glowing first letter</b> and drag through each tile in order — no diagonals, no crossing. Spell <b>WORD GAMES</b> to finish.",
-      {prog:"5 / "+TUT_TOTAL});
   }
 }
 
-function tutOnMove(){ if(tutStep===2 && isSolved()) tutGo(3); }
-
 function tutWin(){
   won=true;                       // freeze interaction during the celebration
-  const cells=trace.cells.slice();
+  tutStep=3;
+  const cells=PATH.slice();
   clearTutHighlights();
-  [...overlay.querySelectorAll(".tracepath")].forEach(p=>p.remove());
   [...overlay.querySelectorAll(".spark")].forEach(s=>s.classList.add("fading"));
   tileEls.forEach(t=>{ if(!grid[+t.dataset.r][+t.dataset.c].target) t.classList.add("cleared"); });
   const pl=document.createElementNS("http://www.w3.org/2000/svg","polyline");
@@ -1169,9 +1085,8 @@ function tutWin(){
   cells.forEach(([r,c],i)=>setTimeout(()=>{ const t=tileAt(r,c); if(t){ t.classList.remove("in-path"); t.classList.add("won"); } }, i*stp));
   setTimeout(()=>{ gridEl.classList.add("celebrate"); [...$("blanks").children].forEach(w=>w.classList.add("solved")); }, DRAW);
   setTimeout(()=>{
-    mode="shift"; document.body.classList.remove("trace-mode"); $("traceBtn").classList.remove("on");
     dimAllArrows();   // keep the finished board untouchable behind the final coach card
-    coach("You've got it! 🎉","That's the whole game: <b>slide</b> to line up, <b>follow the sparks</b>, then <b>trace</b> the answer. Beat Par for a Birdie or Eagle.",
+    coach("You've got it! 🎉","That's the whole game: <b>slide</b> to line up, watch the <b>sparks</b> confirm the chain, and once the full answer connects, Currents completes it for you. Beat Par for a Birdie or Eagle.",
       {next:"Play today's puzzle",prog:TUT_TOTAL+" / "+TUT_TOTAL});
   }, DRAW+700);
 }
@@ -1181,8 +1096,6 @@ function endTutorial(){
   clearTutHighlights(); $("coach").classList.remove("show");
   gridEl.classList.remove("celebrate");
   [...overlay.querySelectorAll(".winline")].forEach(p=>p.remove());
-  mode="shift"; document.body.classList.remove("trace-mode"); $("traceBtn").classList.remove("on");
-  $("traceBtn").disabled=false;
   init();   // rebuild + restore the real puzzle and any saved progress
 }
 
@@ -1190,8 +1103,7 @@ $("coachNext").addEventListener("click",()=>{
   switch(tutStep){
     case 0: tutGo(1); break;
     case 1: tutGo(2); break;
-    case 3: tutGo(4); break;
-    case 4: endTutorial(); break;   // "Next" only appears here after the win
+    case 3: endTutorial(); break;
     default: endTutorial();
   }
 });
@@ -1245,8 +1157,6 @@ function loadDay(day){
   if(tutorialMode) return;
   activeDay=day;
   $("modal").classList.remove("show");
-  mode="shift"; document.body.classList.remove("trace-mode"); $("traceBtn").classList.remove("on");
-  trace=null;
   init();
 }
 activeDay=Math.max(0,dayNumber());   // default to today (clamped to launch day #1)
