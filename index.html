@@ -471,7 +471,7 @@ const PAR_CUSHION=3;
 let grid;            // 4x4 of {ch,target,idx}
 let phrase;          // letters only, e.g. "TIMEFLIES"
 let wordBreaks;      // set of phrase indices whose spark crosses into the next word
-let moves=0, par=0, starRating=1;   // starRating: 1–5 difficulty, from the optimal solve
+let moves=0, par=0, optimalSolveMoves=0, starRating=1;   // starRating: 1–5 difficulty, from the optimal solve
 let history=[];      // stack of applied moves {type,i,dir,count} for Undo
 let hintLevel=0;     // how many target letters revealed (0..9)
 let won=false;
@@ -565,9 +565,9 @@ function buildGrid(p){
   p.scramble.forEach(([type,i,dir])=> shift(type,i,dir));
   // Par from the *actual* fewest moves to line the answer up (not the scramble
   // length, which can contain undo-able redundancy). Easier puzzles -> lower Par.
-  const optimal=optimalMoves();
-  par=optimal + PAR_CUSHION;
-  starRating=starsFor(optimal);
+  optimalSolveMoves=optimalMoves();
+  par=optimalSolveMoves + PAR_CUSHION;
+  starRating=starsFor(optimalSolveMoves);
 }
 
 /* ---------------- Optimal-solve search (drives Par + difficulty) ----------------
@@ -929,14 +929,16 @@ function gradeFor(diff){
 }
 function showWin(){
   const diff=moves-par;
+  const fastestSolved=moves<=optimalSolveMoves;
   const [g,col]=gradeFor(diff);
   $("winPhrase").textContent=activePuzzle.words.join(" ");
   const gr=$("grade"); gr.textContent=g;
   gr.style.background=col+"22"; gr.style.color=col; gr.style.border="1px solid "+col;
   $("winScore").textContent=moves+" moves";
   $("breakdown").textContent=
-    diff===0?"Right on target — dead on Par.":
-    diff<0?`You beat Par by ${-diff} move${diff<-1?"s":""}!`:
+    fastestSolved ? "Shortest path cracked. You've already got today's fastest solve." :
+    diff===0 ? "Right on target — dead on Par." :
+    diff<0 ? `You beat Par by ${-diff} move${diff<-1?"s":""}!` :
     `${diff} over Par — still a clear for today.`;
   // stats panel
   const s=loadStats(), curKey=gradeKey(diff);
@@ -948,6 +950,7 @@ function showWin(){
 
   const dots = diff<=0 ? "🟢".repeat(Math.max(1,moves)) : "🟢".repeat(par)+"⚪".repeat(diff);
   $("share").textContent=`Currents #${activeDay+1} ${"★".repeat(starRating)}\n${g} · ${moves}/${par} · 🔥${s.currentStreak}\n${dots}`;
+  $("retryBtn").hidden=fastestSolved;
   $("modal").classList.add("show");
 }
 
