@@ -456,10 +456,9 @@ const PUZZLES = [
     scramble:[["col",3,-1],["col",1,1],["row",0,1],["col",2,1]] },
 ];
 
-/* Solved layout: a continuous, non-crossing orthogonal path of 9 cells (the
-   intended trace). Targets go here in phrase order; decoys fill the rest. Each
-   puzzle carries its own `path` (varied start corner + shape) so solutions don't
-   all begin top-left; PATH is set to the active puzzle's path in buildGrid. */
+/* Authored layout seed: a continuous orthogonal path of 9 cells used to place
+   the answer before the puzzle is scrambled. Players can still finish on any
+   valid connected trace; this authored path is just the construction template. */
 const DEFAULT_PATH = [[0,0],[0,1],[0,2],[0,3],[1,3],[1,2],[1,1],[1,0],[2,0]];
 let PATH = DEFAULT_PATH;
 
@@ -550,7 +549,7 @@ function recordWin(diff){
 }
 
 function buildGrid(p){
-  PATH = p.path || DEFAULT_PATH;     // this puzzle's trace path drives placement, sparks, solve-check
+  PATH = p.path || DEFAULT_PATH;     // this puzzle's authored seed path drives placement before scrambling
   phrase=p.words.join("").toUpperCase();
   const letters=phrase.split("");
   // index of the last letter of each word (except the final one): a spark sitting
@@ -572,37 +571,66 @@ function buildGrid(p){
 }
 
 /* ---------------- Optimal-solve search (drives Par + difficulty) ----------------
-   Breadth-first over letter-only grids. One game "move" rotates a single row or
-   column by any amount (a drag of 1–3 cells counts as one move, see doMove), so a
-   neighbour = rotating one of the 8 lanes by 1, 2 or 3. We compare letters only,
-   so duplicate letters collapse and the search finds the genuinely shortest solve.
-   The goal: the 9 PATH cells spell the phrase (any valid copy of a repeated letter
-   counts). Always reachable within the scramble length, so the BFS stays shallow. */
-function gridKey(g){
-  let s=""; for(let r=0;r<4;r++)for(let c=0;c<4;c++) s+=g[r][c].ch; return s;
+   Breadth-first over the live answer-tile positions. One move rotates a single
+   row or column by any amount (a drag of 1–3 cells counts as one move, see
+   doMove), so a neighbour = rotating one of the 8 lanes by 1, 2 or 3.
+   A solved state is any board where the target tiles form one orthogonally
+   connected trace in phrase order, not just the authored construction path. */
+function targetTraceCells(){
+  const cells=Array(phrase.length).fill(null);
+  for(let r=0;r<4;r++) for(let c=0;c<4;c++){
+    const cell=grid[r][c];
+    if(cell.target && cell.idx>=0 && cell.idx<phrase.length) cells[cell.idx]=[r,c];
+  }
+  return cells.every(Boolean) ? cells : null;
 }
-function keySolved(k){ return PATH.every(([r,c],i)=> k[r*4+c]===phrase[i]); }
-function keyRotate(k,type,i,amt){
-  const a=k.split("");
-  const idx = type==="row" ? [i*4,i*4+1,i*4+2,i*4+3] : [i,i+4,i+8,i+12];
-  const v=idx.map(x=>a[x]);
-  const rot=v.slice(4-amt).concat(v.slice(0,4-amt)); // rotate by `amt` (1..3)
-  idx.forEach((x,j)=>a[x]=rot[j]);
-  return a.join("");
+function traceSolved(cells){
+  if(!cells || cells.length!==phrase.length) return false;
+  for(let i=1;i<cells.length;i++){
+    const [r1,c1]=cells[i-1], [r2,c2]=cells[i];
+    if(Math.abs(r1-r2)+Math.abs(c1-c2)!==1) return false;
+  }
+  return true;
+}
+function traceState(){
+  const cells=targetTraceCells();
+  return cells ? cells.map(([r,c])=>r*4+c) : null;
+}
+function stateSolved(state){
+  if(!state || state.length!==phrase.length) return false;
+  for(let i=1;i<state.length;i++){
+    const a=state[i-1], b=state[i];
+    const r1=Math.floor(a/4), c1=a%4;
+    const r2=Math.floor(b/4), c2=b%4;
+    if(Math.abs(r1-r2)+Math.abs(c1-c2)!==1) return false;
+  }
+  return true;
+}
+function stateRotate(state,type,i,amt){
+  return state.map(pos=>{
+    const r=Math.floor(pos/4), c=pos%4;
+    if(type==="row"){
+      if(r!==i) return pos;
+      return r*4 + ((c+amt)%4);
+    }
+    if(c!==i) return pos;
+    return ((r+amt)%4)*4 + c;
+  });
 }
 function optimalMoves(){
-  const start=gridKey(grid);
-  if(keySolved(start)) return 0;
-  const seen=new Set([start]); let frontier=[start], depth=0;
+  const start=traceState();
+  if(stateSolved(start)) return 0;
+  const seen=new Set([start.join(",")]); let frontier=[start], depth=0;
   while(frontier.length && depth<10){
     depth++;
     const next=[];
-    for(const k of frontier){
+    for(const state of frontier){
       for(const type of ["row","col"]) for(let i=0;i<4;i++) for(let amt=1;amt<=3;amt++){
-        const nk=keyRotate(k,type,i,amt);
-        if(seen.has(nk)) continue;
-        if(keySolved(nk)) return depth;
-        seen.add(nk); next.push(nk);
+        const ns=stateRotate(state,type,i,amt);
+        const key=ns.join(",");
+        if(seen.has(key)) continue;
+        if(stateSolved(ns)) return depth;
+        seen.add(key); next.push(ns);
       }
     }
     frontier=next;
@@ -702,7 +730,8 @@ function doMove(type,i,dir,count=1){
   fullRender();
   saveState();
   updateControls();
-  if(isSolved()) winGame();
+  const solvedCells=isSolved();
+  if(solvedCells) winGame(solvedCells);
 }
 
 /* ---------------- Undo / Reset ---------------- */
@@ -850,17 +879,16 @@ function cancelDrag(){
 }
 
 /* ---------------- Win ---------------- */
-function winGame(){
-  if(tutorialMode){ tutWin(); return; }
+function winGame(cells){
+  if(tutorialMode){ tutWin(cells); return; }
   won=true;
   $("hintBtn").disabled=true;
   updateControls();       // lock Undo/Reset once solved
   if(activeDay===dayNumber()) recordWin(moves-par);   // only the live day affects streak/stats
   saveState();
-  animateWin();
+  animateWin(cells);
 }
-function animateWin(){
-  const cells=PATH.slice();
+function animateWin(cells=isSolved()||PATH.slice()){
   [...overlay.querySelectorAll(".spark")].forEach(s=>s.classList.add("fading"));
   // fade out decoy tiles ("clear away the decoys")
   tileEls.forEach(t=>{ if(!grid[+t.dataset.r][+t.dataset.c].target) t.classList.add("cleared"); });
@@ -1011,7 +1039,10 @@ const TUTORIAL = {
 };
 const TUT_TOTAL=4;
 
-function isSolved(){ return PATH.every(([r,c],i)=> grid[r][c].ch===phrase[i]); }
+function isSolved(){
+  const cells=targetTraceCells();
+  return traceSolved(cells) ? cells : null;
+}
 
 function clearTutHighlights(){
   document.querySelectorAll(".tut-highlight").forEach(e=>e.classList.remove("tut-highlight"));
@@ -1072,10 +1103,9 @@ function doStep(step){
   }
 }
 
-function tutWin(){
+function tutWin(cells=isSolved()||PATH.slice()){
   won=true;                       // freeze interaction during the celebration
   tutStep=3;
-  const cells=PATH.slice();
   clearTutHighlights();
   [...overlay.querySelectorAll(".spark")].forEach(s=>s.classList.add("fading"));
   tileEls.forEach(t=>{ if(!grid[+t.dataset.r][+t.dataset.c].target) t.classList.add("cleared"); });
