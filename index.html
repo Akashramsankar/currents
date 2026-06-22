@@ -476,6 +476,7 @@ let history=[];      // stack of applied moves {type,i,dir,count} for Undo
 let hintLevel=0;     // how many target letters revealed (0..9)
 let won=false;
 let tutorialMode=false, tutStep=0;  // scripted interactive tutorial
+let celebrationTimers=[];
 
 const $=id=>document.getElementById(id);
 const gridEl=$("grid"), overlay=$("overlay"), stage=$("stage");
@@ -658,7 +659,15 @@ function shift(type,i,dir){
 
 /* ---------------- Rendering ---------------- */
 let tileEls=[]; // flat list synced to grid via data attrs
+function clearCelebrationState(){
+  celebrationTimers.forEach(t=>clearTimeout(t));
+  celebrationTimers=[];
+  gridEl.classList.remove("celebrate");
+  [...overlay.querySelectorAll(".winline")].forEach(p=>p.remove());
+  [...$("blanks").querySelectorAll(".solved")].forEach(w=>w.classList.remove("solved"));
+}
 function fullRender(){
+  clearCelebrationState();
   // remove old tiles (keep svg)
   [...gridEl.querySelectorAll(".tile")].forEach(t=>t.remove());
   tileEls=[];
@@ -889,6 +898,7 @@ function winGame(cells){
   animateWin(cells);
 }
 function animateWin(cells=isSolved()||PATH.slice()){
+  clearCelebrationState();
   [...overlay.querySelectorAll(".spark")].forEach(s=>s.classList.add("fading"));
   // fade out decoy tiles ("clear away the decoys")
   tileEls.forEach(t=>{ if(!grid[+t.dataset.r][+t.dataset.c].target) t.classList.add("cleared"); });
@@ -908,17 +918,18 @@ function animateWin(cells=isSolved()||PATH.slice()){
   // light each tile as the current reaches it
   const step = cells.length>1 ? DRAW/(cells.length-1) : 0;
   cells.forEach(([r,c],i)=>{
-    setTimeout(()=>{
+    const timer=setTimeout(()=>{
       const t=tileAt(r,c);
       if(t){ t.classList.remove("in-path"); t.classList.add("won"); }
     }, i*step);
+    celebrationTimers.push(timer);
   });
 
-  setTimeout(()=>{
+  celebrationTimers.push(setTimeout(()=>{
     gridEl.classList.add("celebrate");
     [...$("blanks").children].forEach(w=>w.classList.add("solved"));
-  }, DRAW);
-  setTimeout(showWin, DRAW+800);
+  }, DRAW));
+  celebrationTimers.push(setTimeout(showWin, DRAW+800));
 }
 function gradeFor(diff){
   if(diff<=-2) return ["EAGLE","#ffcf4d"];
@@ -1110,6 +1121,7 @@ function tutWin(cells=isSolved()||PATH.slice()){
   won=true;                       // freeze interaction during the celebration
   tutStep=3;
   clearTutHighlights();
+  clearCelebrationState();
   [...overlay.querySelectorAll(".spark")].forEach(s=>s.classList.add("fading"));
   tileEls.forEach(t=>{ if(!grid[+t.dataset.r][+t.dataset.c].target) t.classList.add("cleared"); });
   const pl=document.createElementNS("http://www.w3.org/2000/svg","polyline");
@@ -1120,20 +1132,24 @@ function tutWin(cells=isSolved()||PATH.slice()){
   pl.getBoundingClientRect(); const DRAW=900;
   pl.style.transition=`stroke-dashoffset ${DRAW}ms ease-in-out`; pl.style.strokeDashoffset=0;
   const stp=cells.length>1?DRAW/(cells.length-1):0;
-  cells.forEach(([r,c],i)=>setTimeout(()=>{ const t=tileAt(r,c); if(t){ t.classList.remove("in-path"); t.classList.add("won"); } }, i*stp));
-  setTimeout(()=>{ gridEl.classList.add("celebrate"); [...$("blanks").children].forEach(w=>w.classList.add("solved")); }, DRAW);
-  setTimeout(()=>{
+  cells.forEach(([r,c],i)=>celebrationTimers.push(setTimeout(()=>{
+    const t=tileAt(r,c); if(t){ t.classList.remove("in-path"); t.classList.add("won"); }
+  }, i*stp)));
+  celebrationTimers.push(setTimeout(()=>{
+    gridEl.classList.add("celebrate");
+    [...$("blanks").children].forEach(w=>w.classList.add("solved"));
+  }, DRAW));
+  celebrationTimers.push(setTimeout(()=>{
     dimAllArrows();   // keep the finished board untouchable behind the final coach card
     coach("You've got it! 🎉","That's the whole game: <b>slide</b> to line up, watch the <b>sparks</b> confirm the chain, and once the full answer connects, Currents completes it for you. Par is today's target, and finishing under it earns a Birdie or Eagle.",
       {next:"Play today's puzzle",prog:TUT_TOTAL+" / "+TUT_TOTAL});
-  }, DRAW+700);
+  }, DRAW+700));
 }
 
 function endTutorial(){
   tutorialMode=false; tutStep=0;
   clearTutHighlights(); $("coach").classList.remove("show");
-  gridEl.classList.remove("celebrate");
-  [...overlay.querySelectorAll(".winline")].forEach(p=>p.remove());
+  clearCelebrationState();
   init();   // rebuild + restore the real puzzle and any saved progress
 }
 
