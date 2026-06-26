@@ -74,10 +74,14 @@
   }
   .tile.ghost{transition:none; pointer-events:none; opacity:.95;}
   .tile.dragging,.tile.drag-ghost{transition:none; cursor:grabbing; z-index:5;}
-  .tile.revealed{
-    color:#9be8ff; border-color:var(--spark);
-    box-shadow:0 0 14px rgba(61,240,255,.45);
+  /* Hint: glow the whole lane the player should slide */
+  .tile.hint-lane{
+    border-color:var(--gold);
+    box-shadow:0 0 16px rgba(255,207,77,.6);
+    animation:hintpulse 1.1s ease-in-out infinite;
   }
+  @keyframes hintpulse{0%,100%{box-shadow:0 0 10px rgba(255,207,77,.4);}
+    50%{box-shadow:0 0 22px rgba(255,207,77,.85);}}
   .tile.in-path{
     background:linear-gradient(180deg,#3a45ff,#2a32c4);
     color:#fff; box-shadow:0 0 16px rgba(108,123,255,.8); border-color:#8d97ff;
@@ -129,6 +133,18 @@
   button.act:disabled{opacity:.4; cursor:not-allowed;}
 
   .hint{color:var(--muted); font-size:12px; text-align:center; width:min(420px,94vw); line-height:1.5;}
+  /* Move-hint banner — sits right above the grid so it's read where the player
+     is already looking, and stays put until the hint clears (no auto-fade). */
+  .hint-banner{
+    width:min(420px,94vw); max-height:0; overflow:hidden; opacity:0;
+    background:linear-gradient(180deg,#2a2410,#1c1a0e);
+    border:1px solid var(--gold); border-radius:10px; color:var(--gold);
+    font-size:14px; font-weight:600; text-align:center; letter-spacing:.3px;
+    transition:max-height .25s ease, opacity .25s ease, padding .25s ease, margin .25s ease;
+    padding:0 14px; margin:0;
+  }
+  .hint-banner.show{max-height:70px; opacity:1; padding:10px 14px; margin:0 0 10px;
+    box-shadow:0 0 18px rgba(255,207,77,.25);}
   .toast{
     position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
     background:#1b2238; border:1px solid var(--line); padding:10px 18px; border-radius:10px;
@@ -229,6 +245,9 @@
     50%{box-shadow:0 0 0 2px var(--spark),0 0 32px rgba(61,240,255,.8);}}
   .arrow.spot{opacity:1!important; color:var(--spark); border-color:var(--spark);
     z-index:10; animation:tutpulse 1.2s ease-in-out infinite;}
+  /* Hint: highlight the edge arrow for the suggested slide */
+  .arrow.hint-spot{opacity:1!important; color:var(--gold); border-color:var(--gold);
+    z-index:10; animation:hintpulse 1.1s ease-in-out infinite;}
   .arrow.tut-dim{opacity:.1!important; pointer-events:none;}
 </style>
 </head>
@@ -276,7 +295,8 @@
         auto-completes with a glow. No extra tracing step needed.</span></div></div>
 
       <div class="step"><div class="ic">💡</div><div class="t">
-        <b>Stuck?</b> <span>The Hint button reveals one answer letter at a time.</span></div></div>
+        <b>Stuck on the moves?</b> <span>The Hint button glows the row or column to slide
+        next — and the arrow shows which way to push it.</span></div></div>
 
       <div class="step"><div class="ic">⛳</div><div class="t">
         <b>Beat Par.</b> <span>Par is the target number of moves for the day, set a little above the best possible
@@ -302,6 +322,8 @@
     <div class="stat par"><span class="v" id="par">–</span><span class="l">Par</span></div>
     <div class="stat"><span class="v" id="sparkCount">0</span><span class="l">Sparks</span></div>
   </div>
+
+  <div class="hint-banner" id="hintBanner"></div>
 
   <div class="stage" id="stage">
     <div id="grid">
@@ -473,7 +495,7 @@ let phrase;          // letters only, e.g. "TIMEFLIES"
 let wordBreaks;      // set of phrase indices whose spark crosses into the next word
 let moves=0, par=0, optimalSolveMoves=0, starRating=1;   // starRating: 1–5 difficulty, from the optimal solve
 let history=[];      // stack of applied moves {type,i,dir,count} for Undo
-let hintLevel=0;     // how many target letters revealed (0..9)
+let hintLevel=0;     // how many move-hints the player has asked for
 let won=false;
 let tutorialMode=false, tutStep=0;  // scripted interactive tutorial
 let celebrationTimers=[];
@@ -638,6 +660,36 @@ function optimalMoves(){
   }
   return depth;
 }
+/* Next-move hint: BFS (same model as optimalMoves) but it remembers the FIRST
+   move that started each branch, so when it reaches a solved board it can hand
+   back one optimal next slide. Returns {type,i,dir,count} as a real drag the
+   player can make, or null if the board is already solved / nothing found. */
+function hintNextMove(){
+  const start=traceState();
+  if(!start || stateSolved(start)) return null;
+  const seen=new Set([start.join(",")]);
+  let frontier=[{state:start,first:null}], depth=0;
+  while(frontier.length && depth<10){
+    depth++;
+    const next=[];
+    for(const node of frontier){
+      for(const type of ["row","col"]) for(let i=0;i<4;i++) for(let amt=1;amt<=3;amt++){
+        const ns=stateRotate(node.state,type,i,amt);
+        const key=ns.join(",");
+        if(seen.has(key)) continue;
+        const first = node.first || {type,i,amt};
+        // amt is a positive rotation 1..3; turn it into the shortest equivalent
+        // drag: amt 3 is just one slide the other way.
+        if(stateSolved(ns))
+          return first.amt===3 ? {type:first.type,i:first.i,dir:-1,count:1}
+                               : {type:first.type,i:first.i,dir:1,count:first.amt};
+        seen.add(key); next.push({state:ns,first});
+      }
+    }
+    frontier=next;
+  }
+  return null;
+}
 function starsFor(opt){ return Math.min(5, Math.max(1, opt-1)); }
 const DIFF_LABELS=["","Very Easy","Easy","Medium","Hard","Expert"];
 function renderDifficulty(){
@@ -681,18 +733,39 @@ function fullRender(){
     gridEl.appendChild(el);
     tileEls.push(el);
   }
-  applyHint();
   renderSparks();
 }
 
 function tileAt(r,c){ return tileEls.find(t=>+t.dataset.r===r&&+t.dataset.c===c); }
 
-function applyHint(){
-  // reveal target tiles in phrase order, one per hint level
-  tileEls.forEach(t=>{
-    const cell=grid[+t.dataset.r][+t.dataset.c];
-    t.classList.toggle("revealed", cell.target && cell.idx < hintLevel);
-  });
+/* ---------------- Move hint ----------------
+   Players know the phrase; what they get stuck on is which lane to slide. The
+   hint highlights one optimal next slide: it glows the lane + edge arrow and
+   says which way to push. */
+let hintTimer=null;
+function clearHintHighlight(){
+  document.querySelectorAll(".tile.hint-lane").forEach(t=>t.classList.remove("hint-lane"));
+  document.querySelectorAll(".arrow.hint-spot").forEach(a=>a.classList.remove("hint-spot"));
+  $("hintBtn").classList.remove("on");
+  $("hintBanner").classList.remove("show");
+  if(hintTimer){ clearTimeout(hintTimer); hintTimer=null; }
+}
+function showMoveHint(){
+  if(won || tutorialMode) return;
+  const mv=hintNextMove();
+  if(!mv){ toast("Every letter's already lined up — make the move!"); return; }
+  clearHintHighlight();
+  hintLevel++;                      // count hints used (for save/share parity)
+  laneTiles(mv.type, mv.i).forEach(t=>t.classList.add("hint-lane"));
+  const arrow=document.querySelector(`.arrow[data-act="${mv.type}-${mv.i}-${mv.dir}"]`);
+  if(arrow) arrow.classList.add("hint-spot");
+  const dirWord = mv.type==="row" ? (mv.dir>0?"right":"left") : (mv.dir>0?"down":"up");
+  const banner=$("hintBanner");
+  banner.textContent=`💡 Slide the glowing ${mv.type} ${dirWord}${mv.count>1?" two spaces":""}.`;
+  banner.classList.add("show");
+  $("hintBtn").classList.add("on");
+  hintTimer=setTimeout(clearHintHighlight, 5000);
+  saveState();
 }
 
 function center(r,c){ return [c*PITCH+CELL/2, r*PITCH+CELL/2]; }
@@ -733,6 +806,7 @@ function renderSparks(){
 /* ---------------- Move counting ---------------- */
 function doMove(type,i,dir,count=1){
   if(won) return;
+  clearHintHighlight();   // any pending hint is consumed once the player moves
   for(let k=0;k<count;k++) shift(type,i,dir);
   moves++; $("moves").textContent=moves;
   if(!tutorialMode) history.push({type,i,dir,count});   // record for Undo
@@ -764,7 +838,8 @@ function resetBoard(){
   $("modal").classList.remove("show");
   buildGrid(activePuzzle);     // deterministically rebuilds the original scrambled start
   won=false;
-  moves=0; history=[]; $("moves").textContent=0;
+  moves=0; history=[]; hintLevel=0; $("moves").textContent=0;
+  clearHintHighlight();
   $("hintBtn").disabled=false;
   fullRender();
   saveState();
@@ -960,21 +1035,14 @@ function showWin(){
     `<span class="gd${k===curKey?" cur":""}">${l} <b>${s.dist[k]||0}</b></span>`).join("");
 
   const dots = diff<=0 ? "🟢".repeat(Math.max(1,moves)) : "🟢".repeat(par)+"⚪".repeat(diff);
-  $("share").textContent=`Currents #${activeDay+1} ${"★".repeat(starRating)}\n${g} · ${moves}/${par} · 🔥${s.currentStreak}\n${dots}`;
+  const hintTag = hintLevel>0 ? ` · 💡${hintLevel}` : "";   // only shown when hints were used
+  $("share").textContent=`Currents #${activeDay+1} ${"★".repeat(starRating)}\n${g} · ${moves}/${par} · 🔥${s.currentStreak}${hintTag}\n${dots}`;
   $("retryBtn").hidden=fastestSolved;
   $("modal").classList.add("show");
 }
 
 /* ---------------- UI wiring ---------------- */
-$("hintBtn").addEventListener("click",()=>{
-  if(hintLevel>=9){ toast("All 9 letters already revealed."); return; }
-  hintLevel++;
-  $("hintBtn").textContent=`💡 Hint (${hintLevel}/9)`;
-  $("hintBtn").classList.toggle("on",hintLevel>0);
-  applyHint();
-  saveState();
-  toast(`Letter ${hintLevel} of 9 revealed.`);
-});
+$("hintBtn").addEventListener("click",showMoveHint);
 $("undoBtn").addEventListener("click",undoMove);
 $("resetBtn").addEventListener("click",resetBoard);
 $("retryBtn").addEventListener("click",resetBoard);
@@ -1196,9 +1264,9 @@ function init(){
   }
 
   $("moves").textContent=moves;
-  if(hintLevel>0){ $("hintBtn").textContent=`💡 Hint (${hintLevel}/9)`; $("hintBtn").classList.add("on"); }
-  else { $("hintBtn").textContent="💡 Hint"; $("hintBtn").classList.remove("on"); }
+  $("hintBtn").textContent="💡 Hint"; $("hintBtn").classList.remove("on");
   $("hintBtn").disabled=won;
+  $("hintBanner").classList.remove("show");
 
   buildArrows();
   fullRender();
