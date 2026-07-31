@@ -401,9 +401,12 @@
 "use strict";
 
 /* ---------------- Puzzle data (hardcoded daily list) ----------------
-   Each phrase has exactly 9 letters -> 9 target tiles + 7 decoys = 16.
-   `decoys` = 7 filler letters. `scramble` = moves applied to the solved
-   layout to create the start position; its length is Par.            */
+   A phrase of N letters -> N target tiles + (16-N) decoys fills the 4x4 board,
+   so `path` must be an N-cell connected orthogonal trace and `decoys` must hold
+   exactly 16-N filler letters (distinct, and none of them used in the answer,
+   or the player can't tell a decoy from a real tile). `scramble` = moves applied
+   to the solved layout to create the start position; Par is derived from the
+   BFS optimal solve in buildGrid, not from the scramble length.        */
 const PUZZLES = [
   { clue:"When you're having fun, this passes fast.",
     words:["TIME","FLIES"], decoys:"QBRKXWZ",
@@ -593,6 +596,64 @@ const PUZZLES = [
     words:["UMBRELLAS"], decoys:"QXZJVKW",
     path:[[0,3],[0,2],[0,1],[0,0],[1,0],[1,1],[1,2],[1,3],[2,3]],
     scramble:[["col",1,1],["row",2,-1],["row",3,-1],["col",2,1],["row",1,1],["col",0,1]] },
+
+  /* ---- added 31 Jul 2026: two more weeks (answers vary in length) ---- */
+  { clue:"The arc of colour that appears after a shower.",
+    words:["RAIN","BOW"], decoys:"QXZJVKPGY",
+    path:[[0,0],[0,1],[0,2],[0,3],[1,3],[1,2],[1,1]],
+    scramble:[["col",0,-1],["col",3,-1],["row",2,1]] },
+  { clue:"A beach fortress built with a bucket and spade.",
+    words:["SAND","CASTLE"], decoys:"QXZJVK",
+    path:[[0,3],[0,2],[0,1],[0,0],[1,0],[1,1],[1,2],[1,3],[2,3],[2,2]],
+    scramble:[["col",0,-1],["col",1,-1],["col",2,-1],["col",0,-1]] },
+  { clue:"A tower whose beam warns ships off the rocks.",
+    words:["LIGHT","HOUSE"], decoys:"QXZJVK",
+    path:[[3,0],[2,0],[1,0],[0,0],[0,1],[1,1],[2,1],[3,1],[3,2],[2,2]],
+    scramble:[["col",1,1],["col",3,1],["row",3,-1],["col",0,1],["col",1,-1]] },
+  { clue:"A mountain that erupts with molten rock.",
+    words:["VOLCANO"], decoys:"QXZJKWBPG",
+    path:[[3,3],[3,2],[3,1],[3,0],[2,0],[2,1],[2,2]],
+    scramble:[["col",0,1],["row",0,-1]] },
+  { clue:"A prickly garden visitor that curls into a ball.",
+    words:["HEDGE","HOG"], decoys:"QXZJVKWB",
+    path:[[0,3],[1,3],[2,3],[3,3],[3,2],[2,2],[1,2],[0,2]],
+    scramble:[["row",3,1],["row",2,-1],["col",1,-1]] },
+  { clue:"A pleasant wander of the mind while wide awake.",
+    words:["DAY","DREAM"], decoys:"QXZJVKWB",
+    path:[[3,0],[3,1],[3,2],[3,3],[2,3],[2,2],[2,1],[2,0]],
+    scramble:[["col",0,1],["col",2,-1],["row",0,1],["row",2,1]] },
+  { clue:"A spinning funnel of water that drags things under.",
+    words:["WHIRL","POOL"], decoys:"QXZJVKB",
+    path:[[0,0],[1,0],[2,0],[3,0],[3,1],[2,1],[1,1],[0,1],[0,2]],
+    scramble:[["col",0,-1],["row",0,-1],["row",3,1],["row",1,1],["row",0,-1],["col",0,-1],["row",1,-1]] },
+  { clue:"A squishy white sweet you toast over the flames.",
+    words:["MARSH","MALLOW"], decoys:"QXZJV",
+    path:[[0,0],[0,1],[0,2],[0,3],[1,3],[1,2],[1,1],[1,0],[2,0],[2,1],[2,2]],
+    scramble:[["col",1,-1],["col",2,1],["row",3,1]] },
+  { clue:"A long-legged insect that springs through the meadow.",
+    words:["GRASS","HOPPER"], decoys:"QXZJV",
+    path:[[3,3],[2,3],[1,3],[0,3],[0,2],[1,2],[2,2],[3,2],[3,1],[2,1],[1,1]],
+    scramble:[["row",1,1],["col",1,-1],["col",0,1],["col",2,1]] },
+  { clue:"A springy sheet in the garden that bounces you skyward.",
+    words:["TRAMPOLINE"], decoys:"QXZJVK",
+    path:[[0,3],[0,2],[0,1],[0,0],[1,0],[1,1],[1,2],[1,3],[2,3],[2,2]],
+    scramble:[["row",2,1],["col",0,1],["col",1,1],["row",1,-1],["row",2,-1],["row",3,-1]] },
+  { clue:"The little book that gets stamped at every border.",
+    words:["PASSPORT"], decoys:"QXZJVKWB",
+    path:[[3,0],[2,0],[1,0],[0,0],[0,1],[1,1],[2,1],[3,1]],
+    scramble:[["row",0,-1],["row",2,1]] },
+  { clue:"A children's hideout built up among the branches.",
+    words:["TREE","HOUSE"], decoys:"QXZJVKW",
+    path:[[3,3],[3,2],[3,1],[3,0],[2,0],[2,1],[2,2],[2,3],[1,3]],
+    scramble:[["col",3,1],["row",2,1],["row",3,-1],["col",3,1]] },
+  { clue:"A picture you scribble on and post home from holiday.",
+    words:["POST","CARD"], decoys:"QXZJVKWB",
+    path:[[0,3],[1,3],[2,3],[3,3],[3,2],[2,2],[1,2],[0,2]],
+    scramble:[["row",2,-1],["col",0,-1],["row",0,1],["row",3,-1],["col",0,-1]] },
+  { clue:"The crawling stage that comes before the wings.",
+    words:["CATER","PILLAR"], decoys:"QXZJV",
+    path:[[3,0],[3,1],[3,2],[3,3],[2,3],[2,2],[2,1],[2,0],[1,0],[1,1],[1,2]],
+    scramble:[["col",1,1],["row",2,1],["row",3,-1],["col",2,1],["row",0,1]] },
 ];
 
 /* Authored layout seed: a continuous orthogonal path of 9 cells used to place
