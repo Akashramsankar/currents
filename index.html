@@ -88,6 +88,7 @@
     margin-top:10px; text-transform:uppercase; font-weight:600;
   }
   .sub.meta{color:var(--accent-ink);}
+  .sub.meta:empty{display:none;}
 
   /* Corner icon buttons */
   .help-btn,.cal-btn,.theme-btn{
@@ -241,7 +242,7 @@
     position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
     background:var(--ink); color:var(--card); padding:9px 16px; border-radius:6px;
     font-weight:600; font-size:.86rem; box-shadow:0 4px 14px rgba(27,25,22,.2);
-    opacity:0; transition:.25s; pointer-events:none; z-index:50; max-width:calc(100% - 32px); text-align:center;
+    opacity:0; transition:.25s; pointer-events:none; z-index:1100; max-width:calc(100% - 32px); text-align:center;
   }
   .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
   .toast.bad{background:var(--bad); color:#fff;}
@@ -270,7 +271,7 @@
   .win .breakdown{color:var(--ink-soft); font-size:.92rem; line-height:1.55; margin:10px 0;}
   .share{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; background:var(--surface-2);
     border:1px solid var(--rule); border-radius:var(--radius); padding:12px; font-size:.9rem;
-    letter-spacing:.06em; line-height:1.5; margin:12px 0; white-space:pre-line; color:var(--ink);}
+    letter-spacing:.06em; line-height:1.5; margin:12px 0; white-space:pre-line; color:var(--ink); user-select:text;}
 
   /* Modal buttons: solid ink primary, outlined secondary */
   .win button{
@@ -380,8 +381,8 @@
       --grid-bg:#151310;
     }
     :root:not([data-theme="light"]) .modal{background:rgba(0,0,0,.62);}
-    :root:not([data-theme="light"]) .toast{color:var(--paper);}
-    :root:not([data-theme="light"]) .win button:hover:not(.secondary){background:#dcd7cd;}
+    :root:not([data-theme="light"]) .toast:not(.bad){color:var(--paper);}
+    :root:not([data-theme="light"]) .win button:hover:not(.secondary):not(.arch-row){background:#dcd7cd;}
     :root:not([data-theme="light"]) .coach .next:hover{background:#dcd7cd;}
   }
   :root[data-theme="dark"]{
@@ -399,8 +400,8 @@
     --grid-bg:#151310;
   }
   :root[data-theme="dark"] .modal{background:rgba(0,0,0,.62);}
-  :root[data-theme="dark"] .toast{color:var(--paper);}
-  :root[data-theme="dark"] .win button:hover:not(.secondary){background:#dcd7cd;}
+  :root[data-theme="dark"] .toast:not(.bad){color:var(--paper);}
+  :root[data-theme="dark"] .win button:hover:not(.secondary):not(.arch-row){background:#dcd7cd;}
   :root[data-theme="dark"] .coach .next:hover{background:#dcd7cd;}
 
   /* ==================== FOCUS ==================== */
