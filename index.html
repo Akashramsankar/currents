@@ -138,7 +138,9 @@
   #grid{
     position:relative; width:var(--span); height:var(--span);
     overflow:hidden; border-radius:var(--radius);
-    background:var(--grid-bg); border:1px solid var(--rule); margin:0 auto;
+    background:var(--grid-bg); margin:0 auto;
+    /* no border: tiles are laid out edge-to-edge across the full --span, so any
+       border here would eat into the clip box and shave the outer tiles */
     touch-action:none; /* prevent page scroll/zoom so vertical drags + tracing work on touch */
   }
   .tile{
