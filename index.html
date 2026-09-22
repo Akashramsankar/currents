@@ -91,18 +91,19 @@
   .sub.meta:empty{display:none;}
 
   /* Corner icon buttons */
-  .help-btn,.cal-btn,.theme-btn{
+  .help-btn,.cal-btn,.stats-btn,.theme-btn{
     position:absolute; top:calc(8px + var(--safe-top-inset));
     background:transparent; color:var(--ink); border:none;
     width:38px; height:38px; border-radius:999px; cursor:pointer;
     display:inline-flex; align-items:center; justify-content:center; line-height:1;
     z-index:10; transition:background .15s ease, color .15s ease;
   }
-  .help-btn:hover,.cal-btn:hover,.theme-btn:hover{background:var(--surface-2);}
+  .help-btn:hover,.cal-btn:hover,.stats-btn:hover,.theme-btn:hover{background:var(--surface-2);}
   .help-btn{left:calc(-6px + var(--safe-left-inset)); font-family:var(--font-display); font-weight:800; font-size:1.15rem;}
   .cal-btn{left:calc(32px + var(--safe-left-inset));}
+  .stats-btn{left:calc(70px + var(--safe-left-inset));}
   .theme-btn{right:-6px;}
-  .cal-btn svg,.theme-btn svg{width:19px; height:19px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; pointer-events:none;}
+  .cal-btn svg,.stats-btn svg,.theme-btn svg{width:19px; height:19px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; pointer-events:none;}
   .theme-btn .ico-moon{display:none;}
   :root[data-theme="dark"] .theme-btn .ico-sun{display:none;}
   :root[data-theme="dark"] .theme-btn .ico-moon{display:inline-block;}
@@ -292,11 +293,18 @@
   .winstats .scell{display:flex; flex-direction:column; gap:4px; align-items:center;}
   .winstats .scell b{font-size:1.6rem; font-weight:800; letter-spacing:-.02em; color:var(--ink); line-height:1.1;}
   .winstats .scell span{font-size:.64rem; color:var(--ink-muted); letter-spacing:.1em; text-transform:uppercase; font-weight:600;}
-  .winstats .sdist{display:flex; justify-content:center; flex-wrap:wrap; gap:4px 12px;
-    margin-top:12px; font-size:.72rem; color:var(--ink-muted); font-weight:500;}
-  .winstats .sdist .gd b{color:var(--ink);}
-  .winstats .sdist .gd.cur{color:var(--accent-ink);}
-  .winstats .sdist .gd.cur b{color:var(--accent-ink);}
+  /* par-relative distribution: Tumbler-style horizontal bars, one per grade */
+  .winstats .sdist{display:flex; flex-direction:column; gap:6px; margin-top:14px;}
+  .winstats .sdist .gd{display:flex; align-items:center; gap:8px;}
+  .winstats .sdist .gd .gl{width:46px; flex:none; text-align:right; font-size:.62rem; font-weight:600;
+    letter-spacing:.08em; text-transform:uppercase; color:var(--ink-muted);}
+  .winstats .sdist .gd .gb{height:20px; min-width:24px; border-radius:4px; background:var(--rule-strong);
+    display:flex; align-items:center; justify-content:flex-end; padding-right:6px;
+    color:#fff; font-size:.72rem; font-weight:700; transition:width .3s ease;}
+  .winstats .sdist .gd.cur .gl{color:var(--accent-ink);}
+  .winstats .sdist .gd.cur .gb{background:var(--accent);}
+  .winstats.standalone{margin:0; padding-top:0; border-top:none;}
+  .winstats .sempty{margin-top:14px; font-size:.78rem; color:var(--ink-muted); text-align:center;}
 
   /* archive list */
   .archive{max-height:86vh; overflow-y:auto;}
@@ -430,6 +438,9 @@
         <path d="M16 14h.01"></path>
       </svg>
     </button>
+    <button class="stats-btn" id="statsBtn" type="button" aria-label="Statistics" title="Statistics">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>
+    </button>
     <button class="theme-btn" id="themeBtn" type="button" aria-label="Switch to dark mode" title="Theme">
       <svg class="ico ico-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M18.7 5.3l-1.8 1.8M7.1 16.9l-1.8 1.8"/></svg>
       <svg class="ico ico-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>
@@ -438,6 +449,21 @@
     <div class="sub">Daily word circuit</div>
     <div class="sub meta" id="dateLabel"></div>
   </header>
+
+  <div class="modal" id="statsModal">
+    <div class="win">
+      <h2>Statistics</h2>
+      <div class="winstats standalone">
+        <div class="srow">
+          <div class="scell"><b id="smPlayed">0</b><span>Played</span></div>
+          <div class="scell"><b id="smStreak">0</b><span>Streak</span></div>
+          <div class="scell"><b id="smMax">0</b><span>Max streak</span></div>
+        </div>
+        <div class="sdist" id="smDist"></div>
+      </div>
+      <button id="statsClose" class="secondary">Close</button>
+    </div>
+  </div>
 
   <div class="modal" id="archiveModal">
     <div class="win archive">
@@ -1134,6 +1160,22 @@ function recordWin(diff){
   try{ localStorage.setItem(STATS_KEY, JSON.stringify(s)); }catch(e){ /* storage blocked */ }
 }
 
+// Fills a stats block (win modal: prefix "st", stats modal: prefix "sm"). Bars are
+// scaled to the biggest bucket, like Tumbler's guess distribution; curKey (the grade
+// just earned) is highlighted, or null when viewing stats outside a win.
+function renderStats(prefix, s, curKey){
+  $(prefix+"Played").textContent=s.played;
+  $(prefix+"Streak").textContent=s.currentStreak;
+  $(prefix+"Max").textContent=s.maxStreak;
+  const max=Math.max(1,...GRADE_KEYS.map(([k])=>s.dist[k]||0));
+  $(prefix+"Dist").innerHTML = s.played===0
+    ? `<div class="sempty">Solve today's puzzle to start your distribution.</div>`
+    : GRADE_KEYS.map(([k,l])=>{
+        const n=s.dist[k]||0, w=Math.max(10, n/max*100);
+        return `<div class="gd${k===curKey?" cur":""}"><span class="gl">${l}</span><div class="gb" style="width:${w}%">${n}</div></div>`;
+      }).join("");
+}
+
 function buildGrid(p){
   PATH = p.path || DEFAULT_PATH;     // this puzzle's authored seed path drives placement before scrambling
   phrase=p.words.join("").toUpperCase();
@@ -1591,12 +1633,8 @@ function showWin(){
     diff<0 ? `You beat Par by ${-diff} move${diff<-1?"s":""}!` :
     `${diff} over Par — still a clear for today.`;
   // stats panel
-  const s=loadStats(), curKey=gradeKey(diff);
-  $("stPlayed").textContent=s.played;
-  $("stStreak").textContent=s.currentStreak;
-  $("stMax").textContent=s.maxStreak;
-  $("stDist").innerHTML=GRADE_KEYS.map(([k,l])=>
-    `<span class="gd${k===curKey?" cur":""}">${l} <b>${s.dist[k]||0}</b></span>`).join("");
+  const s=loadStats();
+  renderStats("st", s, gradeKey(diff));
 
   const dots = diff<=0 ? "🟢".repeat(Math.max(1,moves)) : "🟢".repeat(par)+"⚪".repeat(diff);
   const hintTag = hintLevel>0 ? ` · 💡${hintLevel}` : "";   // only shown when hints were used
@@ -1638,6 +1676,11 @@ $("modal").addEventListener("click",e=>{ if(e.target.id==="modal") $("modal").cl
 $("helpBtn").addEventListener("click",()=>$("rulesModal").classList.add("show"));
 $("rulesClose").addEventListener("click",()=>$("rulesModal").classList.remove("show"));
 $("rulesModal").addEventListener("click",e=>{ if(e.target.id==="rulesModal") $("rulesModal").classList.remove("show"); });
+
+// stats modal
+$("statsBtn").addEventListener("click",()=>{ renderStats("sm", loadStats(), null); $("statsModal").classList.add("show"); });
+$("statsClose").addEventListener("click",()=>$("statsModal").classList.remove("show"));
+$("statsModal").addEventListener("click",e=>{ if(e.target.id==="statsModal") $("statsModal").classList.remove("show"); });
 
 /* ---------------- Puzzle archive ---------------- */
 function buildArchive(){
