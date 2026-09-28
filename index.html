@@ -128,6 +128,31 @@
   .word.solved .blank{background:var(--good);}
   .count{color:var(--ink-muted); font-size:.8rem; font-weight:600; margin-left:6px; align-self:center;}
 
+  /* Easy clue ("Still stuck?") — a second, far more obvious clue for the same
+     answer. It never contains the word, so the player still has to name it and
+     still has to build the circuit; it just removes the guessing. */
+  .clue-more[hidden], .easy-clue[hidden]{display:none;}
+  .clue-more{
+    display:inline-flex; align-items:center; gap:6px; margin:12px 0 0; padding:0;
+    background:none; border:0; cursor:pointer; font:inherit;
+    font-size:.78rem; font-weight:600; color:var(--ink-muted);
+    border-bottom:1px dashed var(--rule-strong); line-height:1.6;
+    transition:color .15s ease, border-color .15s ease;
+  }
+  .clue-more:hover{color:var(--gold); border-bottom-color:var(--gold);}
+  .clue-more svg{width:14px; height:14px; stroke:currentColor; fill:none; stroke-width:1.9;
+    stroke-linecap:round; stroke-linejoin:round; flex-shrink:0;}
+  /* Nudged once the player is past Par and clearly stuck. */
+  .clue-more.nudge{color:var(--gold); border-bottom-color:var(--gold); animation:nudgepulse 2s ease-in-out infinite;}
+  @keyframes nudgepulse{0%,100%{opacity:.7;}50%{opacity:1;}}
+  .easy-clue{
+    margin:12px 0 0; padding:10px 12px; border-radius:var(--radius);
+    background:var(--accent-soft); border:1px solid var(--accent);
+    color:var(--accent-ink); font-size:.95rem; line-height:1.45;
+  }
+  .easy-clue .lbl{display:block; font-size:.62rem; letter-spacing:.12em; text-transform:uppercase;
+    font-weight:700; opacity:.75; margin-bottom:3px;}
+
   /* ==================== STATS ROW ==================== */
   .stats{display:grid; grid-template-columns:repeat(3,1fr); width:min(420px,100%); padding:0 4px;}
   .stat{display:flex; flex-direction:column; align-items:center; gap:4px;}
@@ -520,6 +545,11 @@
     </div>
     <div class="clue" id="clue">…</div>
     <div class="blanks" id="blanks"></div>
+    <button class="clue-more" id="easyClueBtn" type="button" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4.5-4.5"/><path d="M11 8v.01"/><path d="M11 11v3"/></svg>
+      <span>Still stuck? Show an easier clue</span>
+    </button>
+    <div class="easy-clue" id="easyClue" hidden></div>
   </div>
 
   <div class="stats">
@@ -638,486 +668,606 @@
    BFS optimal solve in buildGrid, not from the scramble length.        */
 const PUZZLES = [
   { clue:"When you're having fun, this passes fast.",
+    easyClue:"The old saying about how fast the hours slip by when you're enjoying yourself, as if the clock had wings.",
     words:["TIME","FLIES"], decoys:"QBRKXWZ",
     path:[[0,0],[0,1],[0,2],[0,3],[1,3],[1,2],[1,1],[1,0],[2,0]],
     scramble:[["row",1,-1],["col",1,-1],["col",0,1],["row",2,-1]] },
   { clue:"Friends gather round the table to play.",
+    easyClue:"The evening friends come round for a board, some cards and a lot of arguing about rules.",
     words:["GAME","NIGHT"], decoys:"PVZKWXJ",
     path:[[0,3],[0,2],[0,1],[0,0],[1,0],[1,1],[1,2],[1,3],[2,3]],
     scramble:[["col",1,1],["row",2,-1],["row",3,-1],["col",2,1],["row",1,1],["col",0,1]] },
   { clue:"Colourful explosions that light up the night sky.",
+    easyClue:"Rockets and sparklers set off overhead on New Year's Eve and Diwali.",
     words:["FIRE","WORKS"], decoys:"BTNPLDG",
     path:[[3,0],[2,0],[1,0],[0,0],[0,1],[1,1],[2,1],[3,1],[3,2]],
     scramble:[["row",3,1],["row",0,1],["col",0,1]] },
   { clue:"An unbeatable line-up of all-stars.",
+    easyClue:"An imaginary line-up where every single player you picked is a superstar.",
     words:["DREAM","TEAM"], decoys:"PKWXZQB",
     path:[[3,3],[3,2],[3,1],[3,0],[2,0],[2,1],[2,2],[2,3],[1,3]],
     scramble:[["col",3,-1],["col",2,1],["row",2,1],["row",3,-1],["row",0,-1]] },
   { clue:"The pale glow that lights up a clear night sky.",
+    easyClue:"The soft silver glow that lets you see outdoors at midnight.",
     words:["MOON","LIGHT"], decoys:"BCDFKPV",
     path:[[3,3],[3,2],[3,1],[3,0],[2,0],[1,0],[0,0],[0,1],[0,2]],
     scramble:[["row",3,1],["col",1,1],["col",2,-1],["col",3,1]] },
   { clue:"Tall golden bloom that turns to face the sun.",
+    easyClue:"A tall yellow bloom on a thick stalk, grown for its seeds, that turns its head to follow the daylight.",
     words:["SUN","FLOWER"], decoys:"BCDGHKM",
     path:[[3,0],[3,1],[3,2],[3,3],[2,3],[1,3],[0,3],[0,2],[0,1]],
     scramble:[["col",1,-1],["row",2,-1],["row",0,-1],["col",3,1]] },
   { clue:"The twinkle from a distant sun at night.",
+    easyClue:"What twinkles down at you from distant suns on a cloudless night.",
     words:["STAR","LIGHT"], decoys:"QXZJVKW",
     path:[[0,0],[0,1],[0,2],[0,3],[1,3],[1,2],[1,1],[1,0],[2,0]],
     scramble:[["col",0,1],["row",3,1],["col",0,-1]] },
   { clue:"Crackling blazes you gather around outdoors.",
+    easyClue:"The crackling ring of logs you sit around in the woods, toasting marshmallows and telling ghost stories.",
     words:["CAMP","FIRES"], decoys:"QXZJVKW",
     path:[[0,3],[0,2],[0,1],[0,0],[1,0],[1,1],[1,2],[1,3],[2,3]],
     scramble:[["col",2,-1],["col",0,-1],["row",2,1],["col",3,-1]] },
   { clue:"A region of space that nothing escapes.",
+    easyClue:"A collapsed star so dense that not even a beam of light can escape its pull.",
     words:["BLACK","HOLE"], decoys:"QXZJVWP",
     path:[[3,0],[2,0],[1,0],[0,0],[0,1],[1,1],[2,1],[3,1],[3,2]],
     scramble:[["col",3,1],["row",3,1],["col",1,1],["col",2,1],["col",0,-1],["row",1,-1]] },
   { clue:"Rows of tall yellow crops on a farm.",
+    easyClue:"Acres of tall maize stalks in neat rows, with a scarecrow standing in the middle.",
     words:["CORN","FIELD"], decoys:"QXZJVKW",
     path:[[3,3],[3,2],[3,1],[3,0],[2,0],[2,1],[2,2],[2,3],[1,3]],
     scramble:[["row",1,1],["col",1,-1],["col",0,1],["row",2,1]] },
   { clue:"A grey sky bringing a steady shower.",
+    easyClue:"The grey lump of vapour hanging overhead that's about to soak you.",
     words:["RAIN","CLOUD"], decoys:"QXZJVKW",
     path:[[3,3],[3,2],[3,1],[3,0],[2,0],[1,0],[0,0],[0,1],[0,2]],
     scramble:[["col",2,-1],["col",0,1],["col",1,1]] },
   { clue:"A river plunging over a rocky ledge.",
+    easyClue:"Where a river reaches a cliff edge and plunges straight down in a roar of spray.",
     words:["WATER","FALL"], decoys:"QXZJVKB",
     path:[[3,0],[3,1],[3,2],[3,3],[2,3],[1,3],[0,3],[0,2],[0,1]],
     scramble:[["row",1,-1],["row",0,-1],["col",2,-1],["col",0,-1]] },
   { clue:"The moment dusk gives way to dark.",
+    easyClue:"The moment at the end of the day when the last of the daylight goes and it turns dark.",
     words:["NIGHT","FALL"], decoys:"QXZJVKW",
     path:[[0,0],[0,1],[0,2],[0,3],[1,3],[1,2],[1,1],[1,0],[2,0]],
     scramble:[["row",0,-1],["row",2,1],["col",3,-1],["col",0,1],["col",2,1]] },
   { clue:"A wriggly creature that aerates garden soil.",
+    easyClue:"The long pink wriggler you dig up in the garden, that a robin would love to get hold of.",
     words:["EARTH","WORM"], decoys:"QXZJVKB",
     path:[[0,3],[0,2],[0,1],[0,0],[1,0],[1,1],[1,2],[1,3],[2,3]],
     scramble:[["row",2,-1],["col",0,-1],["row",0,1],["col",3,1]] },
   { clue:"Where you line up your novels at home.",
+    easyClue:"The wooden plank fixed to the wall where your novels stand in a row.",
     words:["BOOK","SHELF"], decoys:"QXZJVWP",
     path:[[3,0],[2,0],[1,0],[0,0],[0,1],[1,1],[2,1],[3,1],[3,2]],
     scramble:[["col",3,-1],["col",2,-1],["col",0,1],["row",1,-1]] },
   { clue:"A drifting sea creature with stinging tentacles.",
+    easyClue:"A see-through blob that drifts in the sea and stings your legs.",
     words:["JELLY","FISH"], decoys:"QXZVKWB",
     path:[[3,3],[3,2],[3,1],[3,0],[2,0],[2,1],[2,2],[2,3],[1,3]],
     scramble:[["col",0,1],["row",3,1],["row",1,1],["row",2,1],["row",0,1]] },
   { clue:"A fierce winter blizzard of white.",
+    easyClue:"A blizzard: thick white flakes driven sideways by a howling gale.",
     words:["SNOW","STORM"], decoys:"QXZJVKB",
     path:[[3,3],[3,2],[3,1],[3,0],[2,0],[1,0],[0,0],[0,1],[0,2]],
     scramble:[["row",1,-1],["col",2,-1],["row",0,1],["col",3,-1],["col",0,-1]] },
   { clue:"Tall blades that turn the breeze into power.",
+    easyClue:"The Dutch buildings with four big sails on the front that turn in the breeze to grind grain.",
     words:["WIND","MILLS"], decoys:"QXZJVKB",
     path:[[3,0],[3,1],[3,2],[3,3],[2,3],[1,3],[0,3],[0,2],[0,1]],
     scramble:[["col",3,-1],["col",1,1],["row",0,1],["col",2,1]] },
   { clue:"Hexagonal wax cells where bees store their sweetness.",
+    easyClue:"The wax structure of six-sided cells that bees build to store their sweet golden syrup.",
     words:["HONEY","COMB"], decoys:"QXZJVWP",
     path:[[0,0],[0,1],[0,2],[0,3],[1,3],[1,2],[1,1],[1,0],[2,0]],
     scramble:[["col",0,1],["row",0,-1],["row",3,-1]] },
   { clue:"It flits from flower to flower on colourful wings.",
+    easyClue:"The insect with big colourful wings that a caterpillar turns into.",
     words:["BUTTER","FLY"], decoys:"QXZJVKW",
     path:[[0,3],[0,2],[0,1],[0,0],[1,0],[1,1],[1,2],[1,3],[2,3]],
     scramble:[["row",2,1],["row",3,-1],["row",1,-1]] },
   { clue:"A sudden flash that splits a stormy sky.",
+    easyClue:"The jagged white flash that splits the sky a few seconds before the thunder.",
     words:["LIGHT","NING"], decoys:"QXZJVKB",
     path:[[3,0],[2,0],[1,0],[0,0],[0,1],[1,1],[2,1],[3,1],[3,2]],
     scramble:[["row",3,-1],["row",0,-1],["col",1,1],["row",2,-1],["col",1,-1]] },
   { clue:"The mark your shoe leaves in soft sand.",
+    easyClue:"The shape your bare sole leaves behind in wet sand.",
     words:["FOOT","PRINT"], decoys:"QXZJVKW",
     path:[[3,3],[3,2],[3,1],[3,0],[2,0],[2,1],[2,2],[2,3],[1,3]],
     scramble:[["row",3,1],["row",0,-1],["col",3,-1]] },
   { clue:"A craft that carries explorers among the stars.",
+    easyClue:"The craft astronauts travel in to reach the moon and beyond.",
     words:["SPACE","SHIP"], decoys:"QXZJVKW",
     path:[[3,3],[3,2],[3,1],[3,0],[2,0],[1,0],[0,0],[0,1],[0,2]],
     scramble:[["row",1,-1],["row",0,1],["row",3,1],["col",0,-1],["row",3,-1]] },
   { clue:"A tiny six-sided crystal that falls in winter.",
+    easyClue:"A single six-sided ice crystal falling from the sky, and no two are ever alike.",
     words:["SNOW","FLAKE"], decoys:"QXZJVWB",
     path:[[3,0],[3,1],[3,2],[3,3],[2,3],[1,3],[0,3],[0,2],[0,1]],
     scramble:[["col",1,1],["row",0,-1],["col",3,1],["col",2,1],["row",0,1]] },
   { clue:"A cosy hearth where logs crackle and glow.",
+    easyClue:"The brick opening in a sitting-room wall, with a chimney above it, where logs burn in winter.",
     words:["FIRE","PLACE"], decoys:"QXZJVKW",
     path:[[0,0],[0,1],[0,2],[0,3],[1,3],[1,2],[1,1],[1,0],[2,0]],
     scramble:[["col",3,1],["col",2,-1],["col",1,-1],["col",0,-1]] },
   { clue:"A straw figure that guards fields from birds.",
+    easyClue:"The straw-stuffed figure in old clothes that farmers stand in a field to frighten off birds.",
     words:["SCARE","CROW"], decoys:"QXZJVKB",
     path:[[0,3],[0,2],[0,1],[0,0],[1,0],[1,1],[1,2],[1,3],[2,3]],
     scramble:[["row",2,1],["row",0,-1],["col",1,1],["row",3,-1]] },
   { clue:"The detailed drawing an architect draws up.",
+    easyClue:"The architect's technical drawing of a building, traditionally white lines on a dark background.",
     words:["BLUE","PRINT"], decoys:"QXZJVKW",
     path:[[3,0],[2,0],[1,0],[0,0],[0,1],[1,1],[2,1],[3,1],[3,2]],
     scramble:[["row",2,1],["col",0,1],["col",3,-1],["row",2,1],["row",3,-1]] },
   { clue:"A spiky tropical fruit with a golden crown.",
+    easyClue:"The spiky tropical fruit with a crown of leaves, yellow inside, that people argue about putting on pizza.",
     words:["PINE","APPLE"], decoys:"QXZJVKW",
     path:[[3,3],[3,2],[3,1],[3,0],[2,0],[2,1],[2,2],[2,3],[1,3]],
     scramble:[["col",1,-1],["col",2,-1],["col",0,1],["row",2,1]] },
   { clue:"A thick, cold, blended dairy treat.",
+    easyClue:"The thick cold drink blended from ice cream that you suck up through a fat straw.",
     words:["MILK","SHAKE"], decoys:"QXZJVWB",
     path:[[3,3],[3,2],[3,1],[3,0],[2,0],[1,0],[0,0],[0,1],[0,2]],
     scramble:[["col",3,-1],["row",3,-1],["row",0,1],["col",1,-1],["col",3,1]] },
   { clue:"Folded sheets that bring the day's headlines.",
+    easyClue:"The folded daily sheets of print you read over breakfast for the headlines.",
     words:["NEWS","PAPER"], decoys:"QXZJVKB",
     path:[[3,0],[3,1],[3,2],[3,3],[2,3],[1,3],[0,3],[0,2],[0,1]],
     scramble:[["col",1,-1],["col",0,-1],["row",1,-1],["col",1,-1],["col",3,1]] },
   { clue:"A grid of clues to solve across and down.",
+    easyClue:"The black-and-white grid of numbered clues you fill in with a pencil, printed at the back of the paper.",
     words:["CROSS","WORD"], decoys:"QXZJVKB",
     path:[[0,0],[0,1],[0,2],[0,3],[1,3],[1,2],[1,1],[1,0],[2,0]],
     scramble:[["col",3,-1],["col",2,1],["col",1,-1]] },
   { clue:"A lucky iron curve nailed to a hoof.",
+    easyClue:"The lucky U-shaped iron a blacksmith nails onto a hoof.",
     words:["HORSE","SHOE"], decoys:"QXZJVKW",
     path:[[0,3],[0,2],[0,1],[0,0],[1,0],[1,1],[1,2],[1,3],[2,3]],
     scramble:[["row",1,1],["row",0,-1],["col",1,-1],["col",0,1]] },
   { clue:"Tiny beads of water falling from a cloud.",
+    easyClue:"The individual beads of water that run down a window in a shower.",
     words:["RAIN","DROPS"], decoys:"QXZJVKW",
     path:[[3,0],[2,0],[1,0],[0,0],[0,1],[1,1],[2,1],[3,1],[3,2]],
     scramble:[["row",2,1],["col",3,1],["row",1,1]] },
   { clue:"Spiral souvenirs you gather along the shore.",
+    easyClue:"The hard spiral cases left on the beach by molluscs, which you hold to your ear to hear the ocean.",
     words:["SEA","SHELLS"], decoys:"QXZJVKW",
     path:[[0,0],[0,1],[0,2],[0,3],[1,3],[1,2],[1,1],[1,0],[2,0]],
     scramble:[["col",0,1],["row",0,-1],["row",3,-1]] },
   { clue:"Little insects that blink with light on summer evenings.",
+    easyClue:"The little beetles that blink on and off in the dark on a warm summer evening.",
     words:["FIRE","FLIES"], decoys:"QXZJVKW",
     path:[[0,3],[0,2],[0,1],[0,0],[1,0],[1,1],[1,2],[1,3],[2,3]],
     scramble:[["col",2,-1],["col",0,-1],["row",2,1],["col",3,-1]] },
   { clue:"Curly-tailed swimmers that drift among the reef.",
+    easyClue:"The tiny curled-tail swimmers with a snout like a pony, and it's the father that carries the babies.",
     words:["SEA","HORSES"], decoys:"QXZJVKW",
     path:[[3,0],[2,0],[1,0],[0,0],[0,1],[1,1],[2,1],[3,1],[3,2]],
     scramble:[["col",3,-1],["col",2,-1],["col",0,1],["row",1,-1]] },
   { clue:"A friendly grip that seals a deal.",
+    easyClue:"The firm grip and up-down pump you give someone when you meet them or close a deal.",
     words:["HAND","SHAKE"], decoys:"QXZJVWP",
     path:[[3,3],[3,2],[3,1],[3,0],[2,0],[2,1],[2,2],[2,3],[1,3]],
     scramble:[["row",1,1],["col",1,-1],["col",0,1],["row",2,1]] },
   { clue:"Press these and they chime for a visitor.",
+    easyClue:"The button visitors press outside, and it goes ding-dong inside.",
     words:["DOOR","BELLS"], decoys:"QXZJVKW",
     path:[[3,3],[3,2],[3,1],[3,0],[2,0],[1,0],[0,0],[0,1],[0,2]],
     scramble:[["row",3,1],["col",1,1],["col",2,-1],["col",3,1]] },
   { clue:"You untangle your locks with this.",
+    easyClue:"The bristled thing with a handle you drag through your tangles each morning.",
     words:["HAIR","BRUSH"], decoys:"QXZJVKW",
     path:[[3,0],[3,1],[3,2],[3,3],[2,3],[1,3],[0,3],[0,2],[0,1]],
     scramble:[["col",1,-1],["row",2,-1],["row",0,-1],["col",3,1]] },
   { clue:"A sweet brown treat made from cocoa beans.",
+    easyClue:"The sweet brown bar made from cocoa beans that melts in your hand.",
     words:["CHOCOLATE"], decoys:"QXZJVKW",
     path:[[0,0],[0,1],[0,2],[0,3],[1,3],[1,2],[1,1],[1,0],[2,0]],
     scramble:[["col",3,-1],["col",2,1],["col",1,-1]] },
   { clue:"An exciting and daring journey into the unknown.",
+    easyClue:"An exciting, risky journey into the unknown, the sort of story Indiana Jones is always having.",
     words:["ADVENTURE"], decoys:"QXZJKWS",
     path:[[0,3],[0,2],[0,1],[0,0],[1,0],[1,1],[1,2],[1,3],[2,3]],
     scramble:[["row",1,1],["row",0,-1],["col",1,-1],["col",0,1]] },
   { clue:"A toothy reptile lurking in the river.",
+    easyClue:"The armoured Nile reptile with a long toothy snout that floats like a log until it lunges.",
     words:["CROCODILE"], decoys:"QXZJVKW",
     path:[[3,0],[2,0],[1,0],[0,0],[0,1],[1,1],[2,1],[3,1],[3,2]],
     scramble:[["row",3,-1],["row",0,-1],["col",1,1],["row",2,-1],["col",1,-1]] },
   { clue:"A yellow bloom whose fluffy seeds you blow away.",
+    easyClue:"The yellow lawn weed that turns into a white puffball you blow the seeds off.",
     words:["DANDELION"], decoys:"QXZJVKW",
     path:[[3,3],[3,2],[3,1],[3,0],[2,0],[2,1],[2,2],[2,3],[1,3]],
     scramble:[["col",3,-1],["col",2,1],["row",2,1],["row",3,-1],["row",0,-1]] },
   { clue:"Peer through this to bring distant stars closer.",
+    easyClue:"The long tube with lenses you point at the night sky to bring the planets closer.",
     words:["TELESCOPE"], decoys:"QXZJVKW",
     path:[[3,3],[3,2],[3,1],[3,0],[2,0],[1,0],[0,0],[0,1],[0,2]],
     scramble:[["row",1,-1],["row",0,1],["row",3,1],["col",0,-1],["row",3,-1]] },
   { clue:"A large group of musicians playing as one.",
+    easyClue:"The big group of musicians, strings, brass, woodwind and drums, led by a conductor with a baton.",
     words:["ORCHESTRA"], decoys:"QXZJVKW",
     path:[[3,0],[3,1],[3,2],[3,3],[2,3],[1,3],[0,3],[0,2],[0,1]],
     scramble:[["col",1,-1],["col",0,-1],["row",1,-1],["col",1,-1],["col",3,1]] },
   { clue:"A sideways spin with your hands on the ground.",
+    easyClue:"The sideways gymnastic move where you go hand, hand, foot, foot in a full circle on the grass.",
     words:["CARTWHEEL"], decoys:"QXZJVKN",
     path:[[0,0],[0,1],[0,2],[0,3],[1,3],[1,2],[1,1],[1,0],[2,0]],
     scramble:[["col",3,1],["col",2,-1],["col",1,-1],["col",0,-1]] },
   { clue:"You open these to stay dry in the rain.",
+    easyClue:"The folding canopies on a handle that you put up to keep the rain off.",
     words:["UMBRELLAS"], decoys:"QXZJVKW",
     path:[[0,3],[0,2],[0,1],[0,0],[1,0],[1,1],[1,2],[1,3],[2,3]],
     scramble:[["col",1,1],["row",2,-1],["row",3,-1],["col",2,1],["row",1,1],["col",0,1]] },
 
   /* ---- added 31 Jul 2026: two more weeks (answers vary in length) ---- */
   { clue:"The arc of colour that appears after a shower.",
+    easyClue:"The arc of seven colours across the sky after a shower, with a pot of gold at the end.",
     words:["RAIN","BOW"], decoys:"QXZJVKPGY",
     path:[[0,0],[0,1],[0,2],[0,3],[1,3],[1,2],[1,1]],
     scramble:[["col",0,-1],["col",3,-1],["row",2,1]] },
   { clue:"A beach fortress built with a bucket and spade.",
+    easyClue:"The turreted thing you build on the beach with a bucket and spade, and the tide flattens it.",
     words:["SAND","CASTLE"], decoys:"QXZJVK",
     path:[[0,3],[0,2],[0,1],[0,0],[1,0],[1,1],[1,2],[1,3],[2,3],[2,2]],
     scramble:[["col",0,-1],["col",1,-1],["col",2,-1],["col",0,-1]] },
   { clue:"A tower whose beam warns ships off the rocks.",
+    easyClue:"The striped tower on the rocks with a sweeping beam that warns ships away.",
     words:["LIGHT","HOUSE"], decoys:"QXZJVK",
     path:[[3,0],[2,0],[1,0],[0,0],[0,1],[1,1],[2,1],[3,1],[3,2],[2,2]],
     scramble:[["col",1,1],["col",3,1],["row",3,-1],["col",0,1],["col",1,-1]] },
   { clue:"A mountain that erupts with molten rock.",
+    easyClue:"The mountain that erupts, throwing out ash and rivers of molten lava.",
     words:["VOLCANO"], decoys:"QXZJKWBPG",
     path:[[3,3],[3,2],[3,1],[3,0],[2,0],[2,1],[2,2]],
     scramble:[["col",0,1],["row",0,-1]] },
   { clue:"A prickly garden visitor that curls into a ball.",
+    easyClue:"The small spiny garden animal that curls into a prickly ball when frightened.",
     words:["HEDGE","HOG"], decoys:"QXZJVKWB",
     path:[[0,3],[1,3],[2,3],[3,3],[3,2],[2,2],[1,2],[0,2]],
     scramble:[["row",3,1],["row",2,-1],["col",1,-1]] },
   { clue:"A pleasant wander of the mind while wide awake.",
+    easyClue:"Staring out of the window in class, miles away in a pleasant little fantasy.",
     words:["DAY","DREAM"], decoys:"QXZJVKWB",
     path:[[3,0],[3,1],[3,2],[3,3],[2,3],[2,2],[2,1],[2,0]],
     scramble:[["col",0,1],["col",2,-1],["row",0,1],["row",2,1]] },
   { clue:"A spinning funnel of water that drags things under.",
+    easyClue:"The spinning funnel of water that drags things down, like the plughole of a bath but out at sea.",
     words:["WHIRL","POOL"], decoys:"QXZJVKB",
     path:[[0,0],[1,0],[2,0],[3,0],[3,1],[2,1],[1,1],[0,1],[0,2]],
     scramble:[["col",0,-1],["row",0,-1],["row",3,1],["row",1,1],["row",0,-1],["col",0,-1],["row",1,-1]] },
   { clue:"A squishy white sweet you toast over the flames.",
+    easyClue:"The squashy white sugar cube you toast on a stick over a campfire.",
     words:["MARSH","MALLOW"], decoys:"QXZJV",
     path:[[0,0],[0,1],[0,2],[0,3],[1,3],[1,2],[1,1],[1,0],[2,0],[2,1],[2,2]],
     scramble:[["col",1,-1],["col",2,1],["row",3,1]] },
   { clue:"A long-legged insect that springs through the meadow.",
+    easyClue:"The green long-legged insect that chirps in a summer meadow and springs away when you step near.",
     words:["GRASS","HOPPER"], decoys:"QXZJV",
     path:[[3,3],[2,3],[1,3],[0,3],[0,2],[1,2],[2,2],[3,2],[3,1],[2,1],[1,1]],
     scramble:[["row",1,1],["col",1,-1],["col",0,1],["col",2,1]] },
   { clue:"A springy sheet in the garden that bounces you skyward.",
+    easyClue:"The springy sheet stretched on a garden frame that you bounce high on.",
     words:["TRAMPOLINE"], decoys:"QXZJVK",
     path:[[0,3],[0,2],[0,1],[0,0],[1,0],[1,1],[1,2],[1,3],[2,3],[2,2]],
     scramble:[["row",2,1],["col",0,1],["col",1,1],["row",1,-1],["row",2,-1],["row",3,-1]] },
   { clue:"The little book that gets stamped at every border.",
+    easyClue:"The little booklet with your photo that you must show at the border to fly abroad.",
     words:["PASSPORT"], decoys:"QXZJVKWB",
     path:[[3,0],[2,0],[1,0],[0,0],[0,1],[1,1],[2,1],[3,1]],
     scramble:[["row",0,-1],["row",2,1]] },
   { clue:"A children's hideout built up among the branches.",
+    easyClue:"The wooden den children build up among the branches, reached by a rope ladder.",
     words:["TREE","HOUSE"], decoys:"QXZJVKW",
     path:[[3,3],[3,2],[3,1],[3,0],[2,0],[2,1],[2,2],[2,3],[1,3]],
     scramble:[["col",3,1],["row",2,1],["row",3,-1],["col",3,1]] },
   { clue:"A picture you scribble on and post home from holiday.",
+    easyClue:"The stiff rectangle with a beach photo on one side, a stamp and a message on the other, sent home from holiday.",
     words:["POST","CARD"], decoys:"QXZJVKWB",
     path:[[0,3],[1,3],[2,3],[3,3],[3,2],[2,2],[1,2],[0,2]],
     scramble:[["row",2,-1],["col",0,-1],["row",0,1],["row",3,-1],["col",0,-1]] },
   { clue:"A many-legged crawler chewing its way toward a pair of wings.",
+    easyClue:"The stripy many-legged grub that eats leaves all day and later becomes a butterfly.",
     words:["CATER","PILLAR"], decoys:"QXZJV",
     path:[[3,0],[3,1],[3,2],[3,3],[2,3],[2,2],[2,1],[2,0],[1,0],[1,1],[1,2]],
     scramble:[["col",1,1],["row",2,1],["row",3,-1],["col",2,1],["row",0,1]] },
 
   /* ---- added 14 Aug 2026: the next two weeks (days 61-74) ---- */
   { clue:"You push these up on your head when the cloud comes over.",
+    easyClue:"The dark-lensed specs you wear on a bright day to stop yourself squinting.",
     words:["SUN","GLASSES"], decoys:"QXZJVK",
     path:[[2,1],[2,0],[1,0],[1,1],[1,2],[1,3],[0,3],[0,2],[0,1],[0,0]],
     scramble:[["col",1,-1],["col",3,1],["row",1,1],["row",0,1]] },
   { clue:"A darting summer insect with four glassy wings.",
+    easyClue:"The long slender insect with four glassy wings that hovers over a pond like a tiny helicopter.",
     words:["DRAGON","FLY"], decoys:"QXZJVKW",
     path:[[1,3],[0,3],[0,2],[1,2],[1,1],[2,1],[2,0],[1,0],[0,0]],
     scramble:[["row",0,1],["col",0,-1],["col",1,-1],["col",1,-1],["col",2,1],["row",1,-1]] },
   { clue:"Green outside, pink inside, and full of little black pips.",
+    easyClue:"The huge green-striped summer fruit that's pink and full of black seeds inside.",
     words:["WATER","MELON"], decoys:"QXZJVK",
     path:[[3,3],[2,3],[2,2],[1,2],[1,3],[0,3],[0,2],[0,1],[1,1],[2,1]],
     scramble:[["row",2,1],["row",2,1],["col",1,1],["row",0,-1],["row",2,1]] },
   { clue:"Two minutes with this, morning and night.",
+    easyClue:"The small bristled handle you use with paste twice a day on your molars.",
     words:["TOOTH","BRUSH"], decoys:"QXZJVK",
     path:[[3,3],[2,3],[1,3],[0,3],[0,2],[0,1],[0,0],[1,0],[1,1],[1,2]],
     scramble:[["row",2,1],["col",0,-1],["col",2,1],["row",1,-1],["row",3,1],["col",0,1]] },
   { clue:"Flipped in a pan and served with lemon and sugar.",
+    easyClue:"The flat round batter discs you flip in a pan and eat with syrup or lemon.",
     words:["PANCAKES"], decoys:"QXZJVWBY",
     path:[[3,3],[3,2],[2,2],[2,3],[1,3],[0,3],[0,2],[0,1]],
     scramble:[["row",1,1],["row",1,1],["col",3,1],["row",3,-1],["row",3,-1],["col",3,1]] },
   { clue:"Its trembling needle always settles on north.",
+    easyClue:"The little dial with a floating needle that always swings round to point north.",
     words:["COMPASS"], decoys:"QXZJVKWBY",
     path:[[3,1],[3,0],[2,0],[1,0],[0,0],[0,1],[0,2]],
     scramble:[["col",0,-1],["col",2,-1],["row",3,1]] },
   { clue:"Follow the dotted line to where X marks the spot.",
+    easyClue:"The pirate's crumpled parchment with a dotted trail and an X marking where the gold is buried.",
     words:["TREASURE","MAP"], decoys:"QXZJV",
     path:[[3,2],[3,1],[3,0],[2,0],[1,0],[1,1],[2,1],[2,2],[2,3],[1,3],[0,3]],
     scramble:[["col",0,1],["row",1,-1],["row",2,1],["col",1,-1],["row",0,1]] },
   { clue:"A whole mountainside of snow letting go at once.",
+    easyClue:"The huge slab of snow that breaks loose and thunders down a mountainside.",
     words:["AVALANCHE"], decoys:"QXZJKWB",
     path:[[2,0],[3,0],[3,1],[2,1],[2,2],[3,2],[3,3],[2,3],[1,3]],
     scramble:[["col",3,-1],["col",2,1],["col",2,1],["row",0,-1],["row",1,1],["col",0,-1]] },
   { clue:"You climb all day and the top is still above you.",
+    easyClue:"Everest, K2 and Kilimanjaro are all one of these, the sort you climb for days.",
     words:["MOUNTAIN"], decoys:"QXZJVKWB",
     path:[[0,3],[0,2],[0,1],[1,1],[1,0],[2,0],[2,1],[3,1]],
     scramble:[["row",2,-1],["col",3,1],["row",0,-1],["row",2,-1],["col",2,1],["col",2,-1]] },
   { clue:"A bird in a dinner jacket that swims instead of flies.",
+    easyClue:"The black-and-white Antarctic bird that waddles, slides on its belly, and swims instead of flying.",
     words:["PENGUIN"], decoys:"QXZJVKWBY",
     path:[[3,1],[3,0],[2,0],[1,0],[1,1],[2,1],[2,2]],
     scramble:[["col",1,1],["row",3,1],["row",2,-1],["col",3,-1],["row",0,-1]] },
   { clue:"Your fingers rest on the home row of this.",
+    easyClue:"The thing you type on, with QWERTY along the top row.",
     words:["KEY","BOARD"], decoys:"QXZJVWPM",
     path:[[0,2],[1,2],[2,2],[2,1],[1,1],[0,1],[0,0],[1,0]],
     scramble:[["row",0,-1],["row",2,-1],["col",1,1],["row",3,-1],["row",1,1]] },
   { clue:"Count the seconds after the flash to see how far off it is.",
+    easyClue:"The weather that brings flashes, rumbles and a downpour all at once.",
     words:["THUNDER","STORM"], decoys:"QXZJ",
     path:[[2,1],[2,0],[1,0],[0,0],[0,1],[0,2],[0,3],[1,3],[2,3],[3,3],[3,2],[3,1]],
     scramble:[["row",2,1],["col",3,-1],["row",2,1],["col",3,1],["row",0,-1]] },
   { clue:"A small dark fruit that stains the pancake batter.",
+    easyClue:"The tiny round dark-skinned fruit you stir into muffins and pancakes.",
     words:["BLUE","BERRY"], decoys:"QXZJVKW",
     path:[[2,0],[3,0],[3,1],[3,2],[2,2],[2,1],[1,1],[1,0],[0,0]],
     scramble:[["col",1,-1],["row",0,1],["col",1,1],["col",2,1],["col",0,1],["row",3,-1]] },
   { clue:"A five-armed drifter left behind in the rock pool.",
+    easyClue:"The five-armed creature you find stuck to a rock in a tidal pool.",
     words:["STAR","FISH"], decoys:"QXZJVKWB",
     path:[[2,1],[2,2],[3,2],[3,1],[3,0],[2,0],[1,0],[1,1]],
     scramble:[["col",0,1],["row",2,1],["row",0,-1],["row",2,1],["row",3,-1],["col",2,1]] },
   { clue:"Point it into the dark and the dark backs off.",
+    easyClue:"The handheld battery-powered torch you shine under the bed.",
     words:["FLASH","LIGHT"], decoys:"RQNJWB",
     path:[[3,3],[3,2],[3,1],[2,1],[2,2],[1,2],[0,2],[0,3],[1,3],[2,3]],
     scramble:[["col",2,1],["row",2,-1],["row",0,1]] },
   { clue:"A slow waddler covered in spines that nobody wants to hug.",
+    easyClue:"The slow waddling rodent covered in sharp quills that it rattles as a warning.",
     words:["PORCUPINE"], decoys:"XJZTMVW",
     path:[[1,0],[0,0],[0,1],[1,1],[1,2],[2,2],[3,2],[3,3],[2,3]],
     scramble:[["col",2,1],["row",3,-1],["col",3,-1],["col",1,1],["col",1,1]] },
   { clue:"Four small wheels bolted to a plank of trouble.",
+    easyClue:"The short plank on four small wheels that teenagers ride and do ollies on.",
     words:["SKATE","BOARD"], decoys:"GVMJFZ",
     path:[[0,2],[0,1],[0,0],[1,0],[1,1],[1,2],[2,2],[2,1],[2,0],[3,0]],
     scramble:[["row",3,1],["col",1,1],["col",0,1],["row",0,1],["row",0,-1],["row",2,1],["row",3,-1]] },
   { clue:"Turn it over and time starts running all over again.",
+    easyClue:"The pinched glass timer where sand trickles from the top bulb into the bottom one.",
     words:["HOURGLASS"], decoys:"CQKJNWM",
     path:[[3,1],[3,0],[2,0],[1,0],[0,0],[0,1],[0,2],[0,3],[1,3]],
     scramble:[["row",0,1],["col",1,1],["row",0,-1],["row",2,-1],["col",2,-1],["row",1,1]] },
   { clue:"It goes to work by sinking on purpose.",
+    easyClue:"The navy vessel that dives beneath the waves and looks out through a periscope.",
     words:["SUBMARINE"], decoys:"ZYDTJLW",
     path:[[1,1],[2,1],[2,2],[1,2],[1,3],[0,3],[0,2],[0,1],[0,0]],
     scramble:[["row",3,-1],["col",3,-1],["row",0,1],["row",0,1],["col",3,1]] },
   { clue:"The only fruit that wears its seeds on the outside.",
+    easyClue:"The red heart-shaped summer fruit with seeds on the outside, served with cream at Wimbledon.",
     words:["STRAW","BERRY"], decoys:"QXNCDG",
     path:[[0,0],[0,1],[1,1],[1,0],[2,0],[3,0],[3,1],[3,2],[2,2],[2,3]],
     scramble:[["col",3,-1],["row",2,1],["row",0,1],["row",3,1],["row",3,-1],["col",2,-1]] },
   { clue:"Curved brass with the soul of a smoky jazz club.",
+    easyClue:"The curved brass horn with a reed that you hear wailing in a jazz club.",
     words:["SAXOPHONE"], decoys:"YQDZFCM",
     path:[[3,2],[3,3],[2,3],[2,2],[1,2],[1,1],[2,1],[3,1],[3,0]],
     scramble:[["col",3,-1],["row",1,-1],["row",3,1],["row",0,1],["col",0,1],["row",2,-1],["row",3,-1]] },
   { clue:"It carries its child in a built-in pocket and hops everywhere.",
+    easyClue:"The big hopping Australian animal that keeps its joey in a pouch.",
     words:["KANGAROO"], decoys:"VYDTFMPZ",
     path:[[0,3],[1,3],[2,3],[2,2],[1,2],[0,2],[0,1],[1,1]],
     scramble:[["row",2,1],["row",1,-1],["col",0,1]] },
   { clue:"A little umbrella that pushes up through the woods after rain.",
+    easyClue:"The fungus with a cap and a stalk that springs up in damp woods, and some kinds are poisonous.",
     words:["MUSHROOM"], decoys:"QXBTGYFZ",
     path:[[3,3],[2,3],[1,3],[1,2],[2,2],[2,1],[1,1],[0,1]],
     scramble:[["row",1,-1],["row",0,-1],["row",0,-1],["col",3,1],["row",1,-1]] },
   { clue:"Every letter lands with a clack and every line ends with a ding.",
+    easyClue:"The clacking mechanical machine with keys and an inked ribbon that people wrote letters on before computers.",
     words:["TYPEWRITER"], decoys:"KMDHCB",
     path:[[1,0],[2,0],[3,0],[3,1],[3,2],[2,2],[1,2],[1,3],[2,3],[3,3]],
     scramble:[["col",2,-1],["row",0,1],["col",2,1],["col",0,1],["col",0,1]] },
   { clue:"It carries its house on its back and is in absolutely no hurry.",
+    easyClue:"The slow land reptile with a domed shell that famously beat the hare.",
     words:["TORTOISE"], decoys:"XCYLGPFB",
     path:[[1,1],[1,0],[0,0],[0,1],[0,2],[1,2],[2,2],[2,3]],
     scramble:[["row",0,-1],["col",2,1],["row",2,1],["row",1,-1],["row",3,-1]] },
   { clue:"Slung between two trees for an afternoon of doing nothing.",
+    easyClue:"The canvas sling strung between two trees that you lie in and sway.",
     words:["HAMMOCK"], decoys:"QXZDWFJBV",
     path:[[2,0],[1,0],[0,0],[0,1],[1,1],[2,1],[3,1]],
     scramble:[["col",0,1],["row",3,-1],["col",3,-1],["col",3,-1]] },
   { clue:"Squeeze, sweeten, add ice, and sell it from a stand.",
+    easyClue:"The sweet cloudy drink children sell from a stand on a hot day, made from citrus and sugar.",
     words:["LEMONADE"], decoys:"XFCQHTYP",
     path:[[2,1],[2,0],[1,0],[1,1],[1,2],[2,2],[3,2],[3,3]],
     scramble:[["row",1,1],["col",3,-1],["col",0,-1],["row",2,-1],["row",0,1]] },
   { clue:"Lower it to let friends cross, raise it to keep the rest out.",
+    easyClue:"The castle's hinged wooden platform over the moat, hauled up on chains to keep enemies out.",
     words:["DRAW","BRIDGE"], decoys:"QCVXNZ",
     path:[[1,0],[0,0],[0,1],[1,1],[2,1],[2,0],[3,0],[3,1],[3,2],[3,3]],
     scramble:[["row",2,-1],["row",2,-1],["row",3,1],["row",1,1],["col",2,1]] },
   { clue:"It takes off straight upwards and never needs a runway.",
+    easyClue:"The aircraft with spinning rotor blades on top that can hover and land on a roof.",
     words:["HELICOPTER"], decoys:"QXZJWK",
     path:[[1,2],[1,1],[2,1],[3,1],[3,0],[2,0],[1,0],[0,0],[0,1],[0,2]],
     scramble:[["col",2,-1],["row",1,-1],["col",0,1],["row",3,1],["row",1,-1],["row",2,1]] },
   { clue:"One wheel, two handles, and a garden's worth of dirt.",
+    easyClue:"The gardener's metal tub with two long handles that you tip and push along, rolling on a single small tyre.",
     words:["WHEEL","BARROW"], decoys:"NCQMY",
     path:[[0,3],[0,2],[1,2],[1,3],[2,3],[2,2],[2,1],[2,0],[3,0],[3,1],[3,2]],
     scramble:[["row",2,-1],["col",2,1],["col",0,-1]] },
   { clue:"Tickets, photos and glue, all pressed between two covers.",
+    easyClue:"The album where you glue in tickets, photos and cuttings to remember a trip.",
     words:["SCRAPBOOK"], decoys:"XJNHMVQ",
     path:[[3,2],[3,3],[2,3],[2,2],[2,1],[1,1],[0,1],[0,0],[1,0]],
     scramble:[["row",3,-1],["row",2,-1],["col",3,1],["col",1,1],["col",2,1]] },
   { clue:"Pull the cord and the sky slows right down.",
+    easyClue:"The silk canopy a skydiver pulls open to float safely down.",
     words:["PARACHUTE"], decoys:"LWNYGJD",
     path:[[3,3],[3,2],[3,1],[3,0],[2,0],[2,1],[2,2],[2,3],[1,3]],
     scramble:[["col",0,1],["col",3,-1],["row",2,-1],["col",3,1],["col",3,-1],["col",0,-1],["row",3,1]] },
   { clue:"Eight arms, three hearts, and a talent for escaping tanks.",
+    easyClue:"The eight-armed sea creature with suckers and three hearts that squirts ink and escapes from tanks.",
     words:["OCTOPUS"], decoys:"HQVFXBZGJ",
     path:[[1,1],[1,2],[2,2],[2,1],[2,0],[1,0],[0,0]],
     scramble:[["col",1,-1],["row",1,-1],["col",2,1],["row",0,-1]] },
   { clue:"It goes wherever you go, strapped to your shoulders.",
+    easyClue:"The bag with two shoulder straps that schoolchildren and hikers carry their things in.",
     words:["BACKPACK"], decoys:"VTFWMJZH",
     path:[[0,2],[0,3],[1,3],[1,2],[1,1],[0,1],[0,0],[1,0]],
     scramble:[["row",2,1],["col",1,-1],["col",0,1],["row",0,1]] },
   { clue:"Little sponges wearing tall swirls of frosting.",
+    easyClue:"The small individual sponges baked in paper cases and topped with a swirl of frosting.",
     words:["CUPCAKES"], decoys:"DYZLBXVW",
     path:[[1,0],[2,0],[3,0],[3,1],[3,2],[2,2],[1,2],[1,1]],
     scramble:[["col",1,1],["col",3,-1],["row",1,1],["col",1,-1],["row",0,-1],["row",3,1]] },
   { clue:"Long strands you twirl around a fork.",
+    easyClue:"The long thin Italian pasta strands you twirl round a fork with bolognese.",
     words:["SPAGHETTI"], decoys:"WRFNKVY",
     path:[[1,3],[1,2],[2,2],[2,3],[3,3],[3,2],[3,1],[3,0],[2,0]],
     scramble:[["row",0,1],["row",2,1],["col",1,-1],["col",3,1],["col",0,-1],["row",2,1],["row",0,-1]] },
   { clue:"So tall the top floors get their own weather.",
+    easyClue:"The enormously tall city office tower, like the Empire State Building.",
     words:["SKYSCRAPER"], decoys:"QMJNFW",
     path:[[3,2],[3,1],[2,1],[2,0],[1,0],[0,0],[0,1],[0,2],[0,3],[1,3]],
     scramble:[["col",0,1],["col",3,1],["row",0,1],["col",0,-1],["col",2,-1],["col",0,1]] },
   { clue:"It fans out a hundred eyes just to show off.",
+    easyClue:"The showy bird that fans out a huge tail covered in blue-green eyes.",
     words:["PEACOCK"], decoys:"QGXRFTBMV",
     path:[[3,1],[3,2],[2,2],[2,3],[1,3],[1,2],[0,2]],
     scramble:[["row",2,-1],["col",3,1],["row",1,-1],["row",0,-1]] },
   { clue:"Nine tenths of it is hiding under the water.",
+    easyClue:"The floating mountain of frozen water that sank the Titanic, with nine tenths hidden below.",
     words:["ICEBERG"], decoys:"NTYLQXWZK",
     path:[[3,1],[3,0],[2,0],[2,1],[1,1],[0,1],[0,0]],
     scramble:[["row",0,-1],["row",3,1],["col",3,-1],["row",3,-1],["col",0,1],["col",1,1]] },
   { clue:"It arrives days later with a stamp in the corner.",
+    easyClue:"The joking nickname for a paper letter that goes by post and takes days, as opposed to the instant electronic kind.",
     words:["SNAIL","MAIL"], decoys:"KZGDPJF",
     path:[[1,3],[0,3],[0,2],[0,1],[0,0],[1,0],[1,1],[2,1],[2,2]],
     scramble:[["col",0,1],["row",2,1],["row",0,1],["col",1,1],["row",2,1],["col",0,1],["row",3,1]] },
   { clue:"Sit on it to get the zip closed before the flight.",
+    easyClue:"The rectangular wheeled bag with a pull-out handle that you pack your clothes into for a holiday.",
     words:["SUITCASE"], decoys:"MKHLQYWR",
     path:[[1,1],[2,1],[2,0],[3,0],[3,1],[3,2],[3,3],[2,3]],
     scramble:[["col",1,1],["row",2,1],["col",0,-1],["row",2,-1],["col",3,-1]] },
   { clue:"Ruled the earth long before anyone could spell its name.",
+    easyClue:"The giant prehistoric reptile: T-Rex and Diplodocus were both one of these.",
     words:["DINOSAUR"], decoys:"LZMWJFXB",
     path:[[2,3],[1,3],[0,3],[0,2],[0,1],[1,1],[2,1],[3,1]],
     scramble:[["col",0,-1],["col",1,-1],["row",0,1],["col",0,1]] },
   { clue:"A wooden soldier with one job every December.",
+    easyClue:"The hinged metal squeezer for opening walnut shells, and also a famous Christmas ballet.",
     words:["NUTCRACKER"], decoys:"PBYVQG",
     path:[[3,0],[2,0],[2,1],[3,1],[3,2],[3,3],[2,3],[2,2],[1,2],[1,1]],
     scramble:[["col",2,-1],["col",3,-1],["row",3,1],["col",3,-1],["col",1,1]] },
   { clue:"Once a month it shows its whole face.",
+    easyClue:"Once a month our neighbour in the night sky shows a complete bright circle, and werewolves supposedly howl.",
     words:["FULL","MOON"], decoys:"QVJXRDPG",
     path:[[3,2],[3,1],[2,1],[2,0],[1,0],[0,0],[0,1],[1,1]],
     scramble:[["row",3,1],["col",1,-1],["col",1,-1],["row",2,-1],["col",2,-1],["col",1,1]] },
   { clue:"Feathers fly when the bedtime truce breaks down.",
+    easyClue:"The bedtime battle at a sleepover where children whack each other with the soft things they sleep on, until feathers go everywhere.",
     words:["PILLOW","FIGHT"], decoys:"JBYZM",
     path:[[1,0],[1,1],[2,1],[2,0],[3,0],[3,1],[3,2],[3,3],[2,3],[2,2],[1,2]],
     scramble:[["row",2,-1],["row",3,1],["col",3,1],["col",1,-1],["col",1,-1]] },
   { clue:"Hollow it out, carve a face, and stand a candle inside.",
+    easyClue:"The big orange squash you hollow out and carve a face into at Halloween.",
     words:["PUMPKIN"], decoys:"QXTDGZJRL",
     path:[[1,0],[0,0],[0,1],[0,2],[0,3],[1,3],[1,2]],
     scramble:[["col",3,-1],["row",3,1],["row",0,-1]] },
   { clue:"Smoke's way out of the house, and Santa's way in.",
+    easyClue:"The brick flue on a roof that smoke goes up and Santa comes down.",
     words:["CHIMNEY"], decoys:"LQRXWKGTD",
     path:[[2,0],[3,0],[3,1],[3,2],[3,3],[2,3],[1,3]],
     scramble:[["col",2,1],["col",0,1],["row",2,1],["row",1,1]] },
   { clue:"Roast these on an open fire when the nights turn cold.",
+    easyClue:"The glossy brown nut in a spiky green case, roasted on an open fire at Christmas.",
     words:["CHESTNUT"], decoys:"WKVDRFYL",
     path:[[0,2],[1,2],[2,2],[2,1],[1,1],[1,0],[2,0],[3,0]],
     scramble:[["col",1,1],["col",1,1],["row",3,-1],["col",1,1],["col",0,1],["row",2,-1]] },
   { clue:"It buries far more nuts than it will ever find again.",
+    easyClue:"The bushy-tailed tree-climbing rodent that buries acorns and then forgets where.",
     words:["SQUIRREL"], decoys:"PVMYJNCG",
     path:[[1,2],[1,3],[0,3],[0,2],[0,1],[1,1],[1,0],[0,0]],
     scramble:[["col",0,-1],["col",3,-1],["row",3,-1],["col",3,1]] },
   { clue:"A curl of bark that makes a bun worth queueing for.",
+    easyClue:"The warm brown spice, sold as rolled bark sticks or as powder, that flavours buns and apple pie.",
     words:["CINNAMON"], decoys:"PBWJZLVD",
     path:[[3,3],[3,2],[3,1],[3,0],[2,0],[2,1],[2,2],[2,3]],
     scramble:[["row",2,1],["row",3,-1],["col",0,-1]] },
   { clue:"A tiny red dome wearing black polka dots.",
+    easyClue:"The tiny red beetle with black spots that gardeners love because it eats aphids.",
     words:["LADYBIRD"], decoys:"MZXHQTNG",
     path:[[0,0],[1,0],[1,1],[2,1],[3,1],[3,2],[3,3],[2,3]],
     scramble:[["col",0,1],["row",3,1],["col",1,-1],["col",2,-1],["row",2,-1]] },
   { clue:"Coins rest at the bottom while the water keeps leaping up.",
+    easyClue:"The ornamental town-square jet that shoots water up into a pool full of wishing coins.",
     words:["FOUNTAIN"], decoys:"DJZRMQWL",
     path:[[1,3],[2,3],[2,2],[2,1],[1,1],[1,2],[0,2],[0,1]],
     scramble:[["row",1,-1],["col",1,-1],["col",2,-1],["row",1,-1],["row",0,-1]] },
   { clue:"Hang it on the porch and let the breeze play it.",
+    easyClue:"The hanging cluster of metal tubes on a porch that tinkles whenever a breeze blows through.",
     words:["WIND","CHIME"], decoys:"BVRJKQY",
     path:[[3,1],[2,1],[2,2],[3,2],[3,3],[2,3],[1,3],[1,2],[1,1]],
     scramble:[["col",2,-1],["col",1,1],["row",1,-1],["row",3,-1],["col",0,1],["col",2,-1]] },
   { clue:"It counts the floors for you, one step at a time.",
+    easyClue:"The flight of steps with a banister that takes you from one floor of a house up to the next.",
     words:["STAIRCASE"], decoys:"HVKPYMZ",
     path:[[2,3],[1,3],[0,3],[0,2],[1,2],[1,1],[0,1],[0,0],[1,0]],
     scramble:[["row",2,1],["col",3,-1],["col",2,1],["row",2,-1],["row",0,-1]] },
   { clue:"It rang in the hallway long before screens existed.",
+    easyClue:"The device with a dial and a handset that used to sit in the hall and ring.",
     words:["TELEPHONE"], decoys:"JYFBZCX",
     path:[[1,2],[1,1],[0,1],[0,2],[0,3],[1,3],[2,3],[3,3],[3,2]],
     scramble:[["row",0,1],["row",3,-1],["col",2,-1],["row",1,-1]] },
   { clue:"A blanket stitched together from everybody's leftovers.",
+    easyClue:"The quilt sewn together from lots of different odd squares of leftover fabric.",
     words:["PATCHWORK"], decoys:"DJQLGBX",
     path:[[3,0],[3,1],[2,1],[2,2],[3,2],[3,3],[2,3],[1,3],[0,3]],
     scramble:[["row",3,-1],["col",3,1],["col",2,1],["row",2,-1],["col",1,1]] },
   { clue:"Cheese is the bait and the spring does the rest.",
+    easyClue:"The little spring-loaded wooden device baited with cheese to catch a rodent in the kitchen.",
     words:["MOUSE","TRAP"], decoys:"DKNZJQC",
     path:[[1,2],[1,3],[2,3],[3,3],[3,2],[2,2],[2,1],[2,0],[3,0]],
     scramble:[["col",1,1],["col",3,-1],["row",3,1],["row",2,1],["row",0,-1],["col",1,-1]] },
   { clue:"Shake it, and the whole band suddenly keeps time.",
+    easyClue:"The hand-held drum ringed with jingling metal discs that you shake and slap.",
     words:["TAMBOURINE"], decoys:"JKZHDW",
     path:[[1,2],[1,3],[0,3],[0,2],[0,1],[0,0],[1,0],[1,1],[2,1],[2,0]],
     scramble:[["col",2,-1],["row",1,1],["row",1,1],["col",0,-1],["row",3,-1]] },
   { clue:"A little house with icing on the roof that you are allowed to eat.",
+    easyClue:"The spiced biscuit baked into little men, and into a cottage decorated with icing and sweets.",
     words:["GINGER","BREAD"], decoys:"KYJXM",
     path:[[2,1],[2,2],[3,2],[3,3],[2,3],[1,3],[0,3],[0,2],[1,2],[1,1],[0,1]],
     scramble:[["row",2,-1],["row",3,-1],["col",1,1],["col",3,1],["row",2,-1]] },
@@ -1141,6 +1291,7 @@ let wordBreaks;      // set of phrase indices whose spark crosses into the next 
 let moves=0, par=0, optimalSolveMoves=0, starRating=1;   // starRating: 1–5 difficulty, from the optimal solve
 let history=[];      // stack of applied moves {type,i,dir,count} for Undo
 let hintLevel=0;     // how many move-hints the player has asked for
+let easyClueShown=false;   // has the player revealed today's easier clue?
 let won=false;
 let tutorialMode=false, tutStep=0;  // scripted interactive tutorial
 let celebrationTimers=[];
@@ -1176,7 +1327,7 @@ function saveState(){
   if(tutorialMode) return;   // tutorial board must never overwrite real progress
   try{
     const all=allSaves();
-    all[activeDay]={sig:sigOf(activePuzzle),grid,moves,hintLevel,won,history};
+    all[activeDay]={sig:sigOf(activePuzzle),grid,moves,hintLevel,easyClueShown,won,history};
     localStorage.setItem(SAVE_KEY, JSON.stringify(all));
   }catch(e){ /* localStorage blocked — progress just won't persist */ }
 }
@@ -1399,6 +1550,35 @@ function fullRender(){
 
 function tileAt(r,c){ return tileEls.find(t=>+t.dataset.r===r&&+t.dataset.c===c); }
 
+/* ---------------- Easy clue ----------------
+   A second clue for the same answer, written to be almost too obvious, but never
+   containing the word itself: the player still has to name it and still has to
+   build the circuit. Free and untimed — being stuck on the *word* isn't the
+   puzzle, lining up the letters is — but it is flagged in the shared result.
+   Puzzles without an easyClue (e.g. the tutorial) simply hide the control. */
+function renderEasyClue(){
+  const btn=$("easyClueBtn"), box=$("easyClue");
+  const text=!tutorialMode && activePuzzle && activePuzzle.easyClue;
+  if(!text){ btn.hidden=true; box.hidden=true; return; }
+  box.hidden=!easyClueShown;
+  if(easyClueShown) box.innerHTML='<span class="lbl">Easier clue</span>'+escapeHTML(text);
+  btn.hidden=easyClueShown;
+  nudgeEasyClue();
+}
+function escapeHTML(t){ const d=document.createElement("div"); d.textContent=t; return d.innerHTML; }
+/* Draw attention to the easy clue only once the player is visibly struggling
+   (past Par and still unsolved) — before that it stays a quiet offer. */
+function nudgeEasyClue(){
+  const btn=$("easyClueBtn");
+  btn.classList.toggle("nudge", !btn.hidden && !won && par>0 && moves>=par);
+}
+function showEasyClue(){
+  if(easyClueShown || tutorialMode || !activePuzzle || !activePuzzle.easyClue) return;
+  easyClueShown=true;
+  renderEasyClue();
+  saveState();
+}
+
 /* ---------------- Move hint ----------------
    Players know the phrase; what they get stuck on is which lane to slide. The
    hint highlights one optimal next slide: it glows the lane + edge arrow and
@@ -1484,6 +1664,7 @@ function updateControls(){
   const ub=$("undoBtn"), rb=$("resetBtn");
   if(ub) ub.disabled = won || tutorialMode || history.length===0;
   if(rb) rb.disabled = tutorialMode || moves===0;
+  nudgeEasyClue();   // the past-Par nudge tracks the same state changes
 }
 function undoMove(){
   if(won || tutorialMode || history.length===0) return;
@@ -1500,7 +1681,7 @@ function resetBoard(){
   buildGrid(activePuzzle);     // deterministically rebuilds the original scrambled start
   won=false;
   moves=0; history=[]; hintLevel=0; $("moves").textContent=0;
-  clearHintHighlight();
+  clearHintHighlight();   // note: easyClueShown survives a reset — you can't un-read a clue
   $("hintBtn").disabled=false;
   fullRender();
   saveState();
@@ -1628,7 +1809,7 @@ function winGame(cells){
   if(tutorialMode){ tutWin(cells); return; }
   won=true;
   $("hintBtn").disabled=true;
-  updateControls();       // lock Undo/Reset once solved
+  updateControls();       // lock Undo/Reset, stop nudging the easy clue
   if(activeDay===dayNumber()) recordWin(moves-par);   // only the live day affects streak/stats
   saveState();
   animateWin(cells);
@@ -1694,13 +1875,15 @@ function showWin(){
 
   const dots = diff<=0 ? "🟢".repeat(Math.max(1,moves)) : "🟢".repeat(par)+"⚪".repeat(diff);
   const hintTag = hintLevel>0 ? ` · 💡${hintLevel}` : "";   // only shown when hints were used
-  $("share").textContent=`Currents #${activeDay+1} ${"★".repeat(starRating)}\n${g} · ${moves}/${par} · 🔥${s.currentStreak}${hintTag}\n${dots}`;
+  const clueTag = easyClueShown ? " · 🔍" : "";              // ditto for the easier clue
+  $("share").textContent=`Currents #${activeDay+1} ${"★".repeat(starRating)}\n${g} · ${moves}/${par} · 🔥${s.currentStreak}${hintTag}${clueTag}\n${dots}`;
   $("retryBtn").hidden=fastestSolved;
   $("modal").classList.add("show");
 }
 
 /* ---------------- UI wiring ---------------- */
 $("hintBtn").addEventListener("click",showMoveHint);
+$("easyClueBtn").addEventListener("click",showEasyClue);
 $("undoBtn").addEventListener("click",undoMove);
 $("resetBtn").addEventListener("click",resetBoard);
 $("retryBtn").addEventListener("click",resetBoard);
@@ -1807,11 +1990,12 @@ function coach(title,text,{next=null,prog=""}={}){
 function startTutorial(){
   $("rulesModal").classList.remove("show");
   $("modal").classList.remove("show");
-  tutorialMode=true; tutStep=0; won=false; moves=0; hintLevel=0;
+  tutorialMode=true; tutStep=0; won=false; moves=0; hintLevel=0; easyClueShown=false;
   $("hintBtn").disabled=true; $("hintBtn").classList.remove("on");
   history=[]; $("undoBtn").disabled=true; $("resetBtn").disabled=true;  // tutorial drives the board itself
   // load the tutorial board over the real one (never saved)
   $("clue").textContent=TUTORIAL.clue;
+  renderEasyClue();          // tutorial has no easyClue -> control stays hidden
   const b=$("blanks"); b.innerHTML="";
   TUTORIAL.words.forEach(w=>{
     const wd=document.createElement("div"); wd.className="word";
@@ -1920,15 +2104,17 @@ function init(){
   const saved=loadState(activeDay);
   if(saved){
     grid=saved.grid; moves=saved.moves; hintLevel=saved.hintLevel; won=saved.won;
+    easyClueShown=!!saved.easyClueShown;
     history=Array.isArray(saved.history)?saved.history:[];
   }else{
-    moves=0; hintLevel=0; won=false; history=[];
+    moves=0; hintLevel=0; easyClueShown=false; won=false; history=[];
   }
 
   $("moves").textContent=moves;
   $("hintBtn").classList.remove("on");
   $("hintBtn").disabled=won;
   $("hintBanner").classList.remove("show");
+  renderEasyClue();
 
   buildArrows();
   fullRender();
