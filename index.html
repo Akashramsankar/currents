@@ -581,7 +581,7 @@
 
       <div class="step"><div class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/></svg></div><div class="t">
         <b>Stuck on the moves?</b> <span>The Hint button glows the row or column to slide
-        next — and the arrow shows which way to push it.</span></div></div>
+        next — and the arrow shows which way to push it. Each hint adds 1 to your leaderboard score.</span></div></div>
 
       <div class="step"><div class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21V4"/><path d="M4 5h12l-3 4 3 4H4"/></svg></div><div class="t">
         <b>Beat Par.</b> <span>Par is the target number of moves for the day, set a little above the best possible
@@ -2185,8 +2185,9 @@ $("archiveModal").addEventListener("click",e=>{ if(e.target.id==="archiveModal")
    One public board per day, stored in Tumbler's Firebase (alongside Typeset and
    Cascade) under currents/daily/{day}/{playerId}. Only the first live solve of
    today's puzzle counts: it's locked in at the win moment, so "Try for fewer
-   moves" or archive replays never change what's posted. Ranked by moves, then
-   hints used, then whether the easier clue was shown, then who posted first. */
+   moves" or archive replays never change what's posted. As in Cascade, each hint
+   costs a point: ranked by score (moves + hints), then whether the easier clue
+   was shown, then who posted first. */
 const FIREBASE_CONFIG={
   apiKey:"AIzaSyD5C8uPGGb_jMuA0ceP5VlWChMV-Ggfles",
   authDomain:"tumbler-51e42.firebaseapp.com",
@@ -2237,8 +2238,11 @@ async function markCurrentsVisit(){
   }catch(e){ /* Visit tracking is best effort and must not block the game. */ }
 }
 
-/* The result that will be posted for a day: m = moves, p = par, h = hints, c = easier clue shown. */
-function lbLiveEntry(){ return {m:moves, p:par, h:hintLevel|0, c:easyClueShown?1:0}; }
+/* The result that will be posted for a day: s = score (moves + hints), m = moves, p = par,
+   h = hints, c = easier clue shown. */
+const LB_HINT_COST=1;
+function lbScore(m,h){ return m+h*LB_HINT_COST; }
+function lbLiveEntry(){ const h=hintLevel|0; return {s:lbScore(moves,h), m:moves, p:par, h, c:easyClueShown?1:0}; }
 function lbLockResult(day){
   try{
     const cur=JSON.parse(lbGet(LB_RESULT_KEY)||"null");
@@ -2249,7 +2253,8 @@ function lbLockResult(day){
 function lbLockedEntry(day){
   try{
     const cur=JSON.parse(lbGet(LB_RESULT_KEY)||"null");
-    if(cur && cur.day===day && cur.entry && typeof cur.entry.m==="number") return Object.assign({},cur.entry);
+    if(cur && cur.day===day && cur.entry && typeof cur.entry.m==="number")
+      return Object.assign({s:lbScore(cur.entry.m,cur.entry.h|0)},cur.entry);
   }catch(e){ /* ignore */ }
   // Solved before the leaderboard existed: fall back to the saved board for today.
   return lbLiveEntry();
@@ -2269,13 +2274,15 @@ async function lbFetch(day){
   const rows=[];
   snap.forEach(c=>{
     const v=c.val()||{};
-    if(typeof v.m==="number" && v.m>0) rows.push({pid:c.key, n:cleanName(v.n)||"Anonymous", m:v.m|0, p:v.p|0, h:v.h|0, c:v.c?1:0, at:+v.at||0});
+    if(typeof v.m!=="number" || v.m<=0) return;
+    const m=v.m|0, h=v.h|0;
+    rows.push({pid:c.key, n:cleanName(v.n)||"Anonymous", s:typeof v.s==="number"?v.s|0:lbScore(m,h), m, p:v.p|0, h, c:v.c?1:0, at:+v.at||0});
   });
-  rows.sort((a,b)=>a.m-b.m||a.h-b.h||a.c-b.c||a.at-b.at);
+  rows.sort((a,b)=>a.s-b.s||a.c-b.c||a.at-b.at);
   // Identical results share a rank and the next rank is skipped (1, 2, 2, 4); `at` only orders the display.
   rows.forEach((r,i)=>{
     const q=rows[i-1];
-    r.rank=q&&q.m===r.m&&q.h===r.h&&q.c===r.c?q.rank:i+1;
+    r.rank=q&&q.s===r.s&&q.c===r.c?q.rank:i+1;
   });
   return rows;
 }
@@ -2283,9 +2290,12 @@ function lbExtras(r){ return (r.h>0?`💡${r.h}`:"")+(r.c?" 🔍":""); }
 function lbFillRow(el,r){
   el.querySelector(".lx").textContent=lbExtras(r);
   const g=el.querySelector(".lg");
-  if(r.p>0){ const [label,col]=gradeFor(r.m-r.p); g.textContent=label; g.style.color=col; g.hidden=false; }
+  // the board grades the score, so hints count against Par here too
+  if(r.p>0){ const [label,col]=gradeFor(r.s-r.p); g.textContent=label; g.style.color=col; g.hidden=false; }
   else g.hidden=true;
-  el.querySelector(".ls").innerHTML=`${r.m}<small>mv</small>`;
+  const sc=el.querySelector(".ls");
+  sc.textContent=r.s;
+  sc.title=`${r.m} move${r.m===1?"":"s"}`+(r.h?` + ${r.h} hint${r.h===1?"":"s"}`:"");
 }
 function lbRow(r,me){
   const el=document.createElement("div");
@@ -2317,7 +2327,7 @@ async function openLeaderboard(ago=0){
   });
   const dstr=dateForDay(day).toLocaleDateString(undefined,{month:"short",day:"numeric"});
   const parTxt=day===activeDay?` · Par ${par}`:"";
-  $("lbSub").innerHTML=`Puzzle #${day+1} · ${dstr}${parTxt}<br>Ranked by moves · 💡 hints · 🔍 easier clue`;
+  $("lbSub").innerHTML=`Puzzle #${day+1} · ${dstr}${parTxt}<br>Score = moves + 💡 hints · 🔍 breaks ties`;
   list.innerHTML=`<div class="lb-empty">Loading…</div>`;
   renderLbYou(day);
   $("lbModal").classList.add("show");
@@ -2387,7 +2397,7 @@ function openNameCard(mode,day,entry){
   const join=mode==="join";
   $("nameTitle").textContent=join?"Sign your circuit":"Change your name";
   $("nameText").textContent=join?
-    "Pick a name to post today's result. Everyone who solves today's circuit is ranked by moves, then hints, then the easier clue.":
+    "Pick a name to post today's result. Everyone who solves today's circuit is ranked by score: moves, plus 1 for each hint.":
     "This is the name other players see next to your result.";
   $("nameSave").textContent=join?"Post to leaderboard":"Save name";
   $("nameSkip").textContent=join?"Not now":"Cancel";
