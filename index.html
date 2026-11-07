@@ -91,19 +91,20 @@
   .sub.meta:empty{display:none;}
 
   /* Corner icon buttons */
-  .help-btn,.cal-btn,.stats-btn,.theme-btn{
+  .help-btn,.cal-btn,.stats-btn,.theme-btn,.lb-btn{
     position:absolute; top:calc(8px + var(--safe-top-inset));
     background:transparent; color:var(--ink); border:none;
     width:38px; height:38px; border-radius:999px; cursor:pointer;
     display:inline-flex; align-items:center; justify-content:center; line-height:1;
     z-index:10; transition:background .15s ease, color .15s ease;
   }
-  .help-btn:hover,.cal-btn:hover,.stats-btn:hover,.theme-btn:hover{background:var(--surface-2);}
+  .help-btn:hover,.cal-btn:hover,.stats-btn:hover,.theme-btn:hover,.lb-btn:hover{background:var(--surface-2);}
   .help-btn{left:calc(-6px + var(--safe-left-inset)); font-family:var(--font-display); font-weight:800; font-size:1.15rem;}
   .cal-btn{left:calc(32px + var(--safe-left-inset));}
   .stats-btn{left:calc(70px + var(--safe-left-inset));}
   .theme-btn{right:-6px;}
-  .cal-btn svg,.stats-btn svg,.theme-btn svg{width:19px; height:19px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; pointer-events:none;}
+  .lb-btn{right:32px;}
+  .cal-btn svg,.stats-btn svg,.theme-btn svg,.lb-btn svg{width:19px; height:19px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; pointer-events:none;}
   .theme-btn .ico-moon{display:none;}
   :root[data-theme="dark"] .theme-btn .ico-sun{display:none;}
   :root[data-theme="dark"] .theme-btn .ico-moon{display:inline-block;}
@@ -396,6 +397,54 @@
     z-index:10; animation:hintpulse 1.1s ease-in-out infinite;}
   .arrow.tut-dim{opacity:.1!important; pointer-events:none;}
 
+  /* ==================== DAILY LEADERBOARD ====================
+     Same look as Typeset's and Cascade's boards: Today | Yesterday tabs, ranked rows. */
+  .lb{max-height:86vh; overflow-y:auto;}
+  .lb-tabs{display:flex; border-bottom:1px solid var(--rule); margin:0 0 14px;}
+  .lb-tabs[hidden]{display:none;}
+  .win .lb-tab{flex:1; width:auto; margin:0 0 -1px; padding:10px 6px; border:none; border-bottom:2px solid transparent; border-radius:0;
+    background:transparent; color:var(--ink-muted); font-family:var(--font-ui); font-size:.82rem; font-weight:600;
+    transition:color .15s, border-color .15s;}
+  .win .lb-tab:hover{background:transparent; color:var(--ink);}
+  .win .lb-tab:active{transform:none;}
+  .win .lb-tab.on{color:var(--accent-ink); border-bottom-color:var(--accent);}
+  .lb-list{display:flex; flex-direction:column; gap:6px; margin-bottom:6px; text-align:left;}
+  .lb-row{display:flex; align-items:center; gap:10px; background:var(--surface-2); border:1px solid var(--rule);
+    border-radius:var(--radius); padding:9px 12px; font-size:.88rem;}
+  .lb-row.you{border-color:var(--accent); background:var(--accent-soft);}
+  .lb-row.gap{margin-top:8px;}
+  .lb-row .lr{font-family:var(--font-display); font-weight:800; min-width:26px; color:var(--accent-ink);}
+  .lb-row .ln{flex:1; min-width:0; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .lb-row .ln small{font-size:.58rem; letter-spacing:.1em; font-weight:600; color:var(--accent-ink); text-transform:uppercase; margin-left:6px;}
+  .lb-row .lx{font-size:.72rem; white-space:nowrap;}
+  .lb-row .lg{font-size:.58rem; letter-spacing:.08em; font-weight:700; text-transform:uppercase; padding:2px 7px;
+    border-radius:999px; border:1px solid currentColor; white-space:nowrap;}
+  .lb-row .ls{font-family:var(--font-display); font-weight:800; min-width:30px; text-align:right;}
+  .lb-row .ls small{font-family:var(--font-ui); font-size:.62rem; font-weight:600; color:var(--ink-muted); margin-left:2px;}
+  .lb-empty{color:var(--ink-muted); font-size:.88rem; padding:18px 0; text-align:center;}
+  .lb-msg{color:var(--ink-soft); font-size:.88rem; line-height:1.5; margin:14px 0 0;}
+  .lb-msg:empty{display:none;}
+  .lb-msg b{color:var(--ink);}
+  .win .lb-msg .lnk{background:none; border:none; padding:0; margin:0; display:inline; width:auto; color:var(--accent-ink);
+    font:inherit; font-weight:600; text-decoration:underline; cursor:pointer; border-radius:0;}
+  .win .lb-msg .lnk:hover{background:none;}
+  #lbJoin[hidden]{display:none;}
+
+  /* name card: a dedicated step the first time a result can be posted */
+  .nameplate .rsub{font-size:.72rem; letter-spacing:.14em; text-transform:uppercase; font-weight:600; color:var(--accent-ink); margin:0 0 4px;}
+  .nameplate .ntext{color:var(--ink-soft); font-size:.92rem; line-height:1.55; margin:6px 0 16px;}
+  .nameplate .npreview{text-align:left; margin-bottom:14px;}
+  .nameplate .npreview[hidden]{display:none;}
+  .nameplate .npreview .ln.ph{color:var(--ink-muted); font-weight:500;}
+  .nameplate input{display:block; width:100%; font-family:var(--font-display); font-weight:700; font-size:1.25rem;
+    text-align:center; color:var(--ink); background:var(--surface-2); border:1px solid var(--rule-strong);
+    border-radius:var(--radius); padding:13px 16px; user-select:text; transition:border-color .15s ease, box-shadow .15s ease;}
+  .nameplate input::placeholder{color:var(--ink-faint); font-weight:600;}
+  .nameplate input:focus{outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft);}
+  .nameplate input.shake{animation:nameShake .32s ease; border-color:var(--bad);}
+  @keyframes nameShake{25%{transform:translateX(-6px)}50%{transform:translateX(5px)}75%{transform:translateX(-3px)}}
+  .nameplate .nfoot{font-size:.72rem; color:var(--ink-muted); margin-top:12px;}
+
   /* ==================== DARK MODE ==================== */
   /* Follows the OS unless the user picks a theme (data-theme on <html>). */
   @media (prefers-color-scheme: dark){
@@ -415,7 +464,7 @@
     }
     :root:not([data-theme="light"]) .modal{background:rgba(0,0,0,.62);}
     :root:not([data-theme="light"]) .toast:not(.bad){color:var(--paper);}
-    :root:not([data-theme="light"]) .win button:hover:not(.secondary):not(.arch-row){background:#dcd7cd;}
+    :root:not([data-theme="light"]) .win button:hover:not(.secondary):not(.arch-row):not(.lb-tab):not(.lnk){background:#dcd7cd;}
     :root:not([data-theme="light"]) .coach .next:hover{background:#dcd7cd;}
   }
   :root[data-theme="dark"]{
@@ -434,7 +483,7 @@
   }
   :root[data-theme="dark"] .modal{background:rgba(0,0,0,.62);}
   :root[data-theme="dark"] .toast:not(.bad){color:var(--paper);}
-  :root[data-theme="dark"] .win button:hover:not(.secondary):not(.arch-row){background:#dcd7cd;}
+  :root[data-theme="dark"] .win button:hover:not(.secondary):not(.arch-row):not(.lb-tab):not(.lnk){background:#dcd7cd;}
   :root[data-theme="dark"] .coach .next:hover{background:#dcd7cd;}
 
   /* ==================== FOCUS ==================== */
@@ -469,6 +518,12 @@
     <button class="theme-btn" id="themeBtn" type="button" aria-label="Switch to dark mode" title="Theme">
       <svg class="ico ico-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M18.7 5.3l-1.8 1.8M7.1 16.9l-1.8 1.8"/></svg>
       <svg class="ico ico-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>
+    </button>
+    <button class="lb-btn" id="lbBtn" type="button" aria-label="Today's leaderboard" title="Today's leaderboard">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4z"></path>
+        <path d="M7 6H4a3 3 0 0 0 3 4M17 6h3a3 3 0 0 1-3 4"></path>
+      </svg>
     </button>
     <h1>Currents</h1>
     <div class="sub">Daily word circuit</div>
@@ -626,6 +681,42 @@
       <div class="share" id="share"></div>
       <button id="copyBtn">Share result</button>
       <button id="retryBtn" class="secondary">Try for fewer moves</button>
+      <div id="lbJoin" hidden>
+        <div class="lb-msg" id="lbJoinMsg"></div>
+        <button id="lbJoinOpen" class="secondary" type="button">Today's leaderboard</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="lbModal">
+    <div class="win lb">
+      <h2>Leaderboard</h2>
+      <div class="lb-tabs" role="tablist" aria-label="Leaderboard day">
+        <button class="lb-tab on" type="button" role="tab" data-ago="0" aria-selected="true">Today</button>
+        <button class="lb-tab" type="button" role="tab" data-ago="1" aria-selected="false">Yesterday</button>
+      </div>
+      <div class="arch-sub" id="lbSub"></div>
+      <div class="lb-list" id="lbList"></div>
+      <div class="lb-msg" id="lbYou"></div>
+      <button id="lbClose" class="secondary" type="button">Close</button>
+    </div>
+  </div>
+
+  <div class="modal" id="nameModal">
+    <div class="win nameplate">
+      <div class="rsub">Today's leaderboard</div>
+      <h2 id="nameTitle">Sign your circuit</h2>
+      <div class="ntext" id="nameText"></div>
+      <div class="lb-row you npreview" id="namePreview">
+        <span class="lr">#</span><span class="ln"></span><span class="lx"></span><span class="lg"></span><span class="ls"></span>
+      </div>
+      <form id="nameForm" novalidate>
+        <input id="nameInput" maxlength="16" placeholder="Your name" autocomplete="nickname" autocapitalize="words"
+               spellcheck="false" enterkeyhint="done" aria-label="Your name for the leaderboard" />
+        <button type="submit" id="nameSave">Post to leaderboard</button>
+      </form>
+      <button id="nameSkip" class="secondary" type="button">Not now</button>
+      <div class="nfoot">Shown to everyone on the board. You can change it any time.</div>
     </div>
   </div>
 
@@ -1950,7 +2041,10 @@ function winGame(cells){
   won=true;
   $("hintBtn").disabled=true;
   updateControls();       // lock Undo/Reset, stop nudging the easy clue
-  if(activeDay===dayNumber()) recordWin(moves-par);   // only the live day affects streak/stats
+  if(activeDay===dayNumber()){   // only the live day affects streak/stats and the leaderboard
+    recordWin(moves-par);
+    lbLockResult(activeDay);
+  }
   saveState();
   animateWin(cells);
 }
@@ -2019,6 +2113,7 @@ function showWin(){
   $("share").textContent=`Currents #${activeDay+1} ${"★".repeat(starRating)}\n${g} · ${moves}/${par} · 🔥${s.currentStreak}${hintTag}${clueTag}\n${dots}`;
   $("retryBtn").hidden=fastestSolved;
   $("modal").classList.add("show");
+  lbAfterWin();
 }
 
 /* ---------------- UI wiring ---------------- */
@@ -2085,6 +2180,251 @@ $("calBtn").addEventListener("click",()=>{ if(tutorialMode) return; buildArchive
 $("archClose").addEventListener("click",()=>$("archiveModal").classList.remove("show"));
 $("archiveModal").addEventListener("click",e=>{ if(e.target.id==="archiveModal") $("archiveModal").classList.remove("show"); });
 // first-time players get the interactive tutorial (launched after init, below)
+
+/* ---------------- Daily leaderboard ----------------
+   One public board per day, stored in Tumbler's Firebase (alongside Typeset and
+   Cascade) under currents/daily/{day}/{playerId}. Only the first live solve of
+   today's puzzle counts: it's locked in at the win moment, so "Try for fewer
+   moves" or archive replays never change what's posted. Ranked by moves, then
+   hints used, then whether the easier clue was shown, then who posted first. */
+const FIREBASE_CONFIG={
+  apiKey:"AIzaSyD5C8uPGGb_jMuA0ceP5VlWChMV-Ggfles",
+  authDomain:"tumbler-51e42.firebaseapp.com",
+  databaseURL:"https://tumbler-51e42-default-rtdb.asia-southeast1.firebasedatabase.app/",
+  projectId:"tumbler-51e42",
+  appId:"1:907072959576:web:641facf27c204c7bb8862d",
+};
+const LB_PID_KEY="currents_pid", LB_NAME_KEY="currents_name", LB_POSTED_KEY="currents_lb_posted",
+      LB_ASKED_KEY="currents_lb_asked", LB_RESULT_KEY="currents_lb_result";
+const LB_SHOW=50, LB_TIMEOUT=8000;
+function lbGet(k){ try{ return localStorage.getItem(k)||""; }catch(e){ return ""; } }
+function lbSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){ /* storage blocked */ } }
+function cleanName(s){ return String(s||"").replace(/[\u0000-\u001f\u007f<>]/g,"").replace(/\s+/g," ").trim().slice(0,16); }
+let lbName=cleanName(lbGet(LB_NAME_KEY));
+let lbPidCache="";
+function lbPid(){
+  if(lbPidCache) return lbPidCache;
+  let id=lbGet(LB_PID_KEY);
+  if(!/^[a-z0-9]{12,}$/.test(id)){
+    id=Array.from(crypto.getRandomValues(new Uint8Array(16)),b=>(b%36).toString(36)).join("");
+    lbSet(LB_PID_KEY,id);
+  }
+  return lbPidCache=id;
+}
+function lbSetName(n){ lbName=n; lbSet(LB_NAME_KEY,n); }
+function loadScript(src){
+  return new Promise((res,rej)=>{ const el=document.createElement("script"); el.src=src; el.onload=res; el.onerror=rej; document.head.appendChild(el); });
+}
+// Firebase reads never reject while offline — they just wait — so every call gets a deadline.
+function withTimeout(pr,ms){ return Promise.race([pr,new Promise((_,rej)=>setTimeout(()=>rej(new Error("timeout")),ms))]); }
+let lbDbPromise=null;
+function lbDb(){
+  if(!lbDbPromise){
+    const base="https://www.gstatic.com/firebasejs/10.7.1/";
+    lbDbPromise=loadScript(base+"firebase-app-compat.js")
+      .then(()=>loadScript(base+"firebase-database-compat.js"))
+      .then(()=>(firebase.apps.length?firebase.app():firebase.initializeApp(FIREBASE_CONFIG)).database())
+      .catch(e=>{ lbDbPromise=null; throw e; });
+  }
+  return withTimeout(lbDbPromise,LB_TIMEOUT);
+}
+async function markCurrentsVisit(){
+  try{
+    const db=await lbDb();
+    const profile={lastUpdated:firebase.database.ServerValue.TIMESTAMP};
+    if(lbName) profile.name=lbName;
+    await withTimeout(db.ref(`currents/userProfile/${lbPid()}`).update(profile),LB_TIMEOUT);
+  }catch(e){ /* Visit tracking is best effort and must not block the game. */ }
+}
+
+/* The result that will be posted for a day: m = moves, p = par, h = hints, c = easier clue shown. */
+function lbLiveEntry(){ return {m:moves, p:par, h:hintLevel|0, c:easyClueShown?1:0}; }
+function lbLockResult(day){
+  try{
+    const cur=JSON.parse(lbGet(LB_RESULT_KEY)||"null");
+    if(cur && cur.day===day) return;   // first solve of the day stands
+  }catch(e){ /* corrupt — overwrite */ }
+  lbSet(LB_RESULT_KEY,JSON.stringify({day,entry:lbLiveEntry()}));
+}
+function lbLockedEntry(day){
+  try{
+    const cur=JSON.parse(lbGet(LB_RESULT_KEY)||"null");
+    if(cur && cur.day===day && cur.entry && typeof cur.entry.m==="number") return Object.assign({},cur.entry);
+  }catch(e){ /* ignore */ }
+  // Solved before the leaderboard existed: fall back to the saved board for today.
+  return lbLiveEntry();
+}
+
+async function lbPost(day,entry){
+  const db=await lbDb();
+  entry.at=firebase.database.ServerValue.TIMESTAMP;
+  const ref=db.ref(`currents/daily/${day}/${lbPid()}`);
+  await withTimeout(ref.transaction(cur=>cur===null?entry:undefined),LB_TIMEOUT);   // first result stands
+  lbSet(LB_POSTED_KEY,String(day));
+  void markCurrentsVisit();   // a posted score always comes with a profile
+}
+async function lbFetch(day){
+  const db=await lbDb();
+  const snap=await withTimeout(db.ref(`currents/daily/${day}`).once("value"),LB_TIMEOUT);
+  const rows=[];
+  snap.forEach(c=>{
+    const v=c.val()||{};
+    if(typeof v.m==="number" && v.m>0) rows.push({pid:c.key, n:cleanName(v.n)||"Anonymous", m:v.m|0, p:v.p|0, h:v.h|0, c:v.c?1:0, at:+v.at||0});
+  });
+  rows.sort((a,b)=>a.m-b.m||a.h-b.h||a.c-b.c||a.at-b.at);
+  // Identical results share a rank and the next rank is skipped (1, 2, 2, 4); `at` only orders the display.
+  rows.forEach((r,i)=>{
+    const q=rows[i-1];
+    r.rank=q&&q.m===r.m&&q.h===r.h&&q.c===r.c?q.rank:i+1;
+  });
+  return rows;
+}
+function lbExtras(r){ return (r.h>0?`💡${r.h}`:"")+(r.c?" 🔍":""); }
+function lbFillRow(el,r){
+  el.querySelector(".lx").textContent=lbExtras(r);
+  const g=el.querySelector(".lg");
+  if(r.p>0){ const [label,col]=gradeFor(r.m-r.p); g.textContent=label; g.style.color=col; g.hidden=false; }
+  else g.hidden=true;
+  el.querySelector(".ls").innerHTML=`${r.m}<small>mv</small>`;
+}
+function lbRow(r,me){
+  const el=document.createElement("div");
+  el.className="lb-row"+(r.pid===me?" you":"");
+  el.innerHTML=`<span class="lr">${r.rank}</span><span class="ln"></span><span class="lx"></span><span class="lg"></span><span class="ls"></span>`;
+  el.querySelector(".ln").textContent=r.n;
+  if(r.pid===me) el.querySelector(".ln").insertAdjacentHTML("beforeend","<small>You</small>");
+  lbFillRow(el,r);
+  return el;
+}
+function renderLbYou(day){
+  const you=$("lbYou"), isToday=day===dayNumber();
+  if(!lbName){ you.textContent=isToday?"Solve today's circuit to put your name on the board.":""; return; }
+  you.innerHTML=`Playing as <b></b> · <button class="lnk" type="button" id="lbRename">Change name</button>`+
+    (!isToday||lbGet(LB_POSTED_KEY)===String(day)?"":"<br>Solve today's circuit to post your score.");
+  you.querySelector("b").textContent=lbName;
+  $("lbRename").onclick=()=>openNameCard("rename",dayNumber(),null);   // a rename only touches today's entry
+}
+// ago: 0 = today's board, 1 = yesterday's (read-only — only today's live result ever posts).
+let lbReq=0, lbAgo=0;
+async function openLeaderboard(ago=0){
+  const today=Math.max(0,dayNumber());
+  if(today<1) ago=0;
+  lbAgo=ago;
+  const day=today-ago, list=$("lbList"), req=++lbReq;
+  document.querySelector(".lb-tabs").hidden=today<1;   // launch day: nothing to look back on
+  document.querySelectorAll(".lb-tab").forEach(t=>{
+    const on=+t.dataset.ago===ago; t.classList.toggle("on",on); t.setAttribute("aria-selected",on);
+  });
+  const dstr=dateForDay(day).toLocaleDateString(undefined,{month:"short",day:"numeric"});
+  const parTxt=day===activeDay?` · Par ${par}`:"";
+  $("lbSub").innerHTML=`Puzzle #${day+1} · ${dstr}${parTxt}<br>Ranked by moves · 💡 hints · 🔍 easier clue`;
+  list.innerHTML=`<div class="lb-empty">Loading…</div>`;
+  renderLbYou(day);
+  $("lbModal").classList.add("show");
+  try{
+    const rows=await lbFetch(day), me=lbPid();
+    if(req!==lbReq) return;   // the player switched tabs while this was loading
+    list.innerHTML="";
+    if(!rows.length){ list.innerHTML=`<div class="lb-empty">${ago?"No one made yesterday's board.":"No one's on the board yet — solve today's circuit to be first."}</div>`; return; }
+    if(!parTxt && rows[0].p) $("lbSub").innerHTML=$("lbSub").innerHTML.replace("<br>",` · Par ${rows[0].p}<br>`);
+    rows.slice(0,LB_SHOW).forEach(r=>list.appendChild(lbRow(r,me)));
+    const mine=rows.findIndex(r=>r.pid===me);
+    if(mine>=LB_SHOW){ const el=lbRow(rows[mine],me); el.classList.add("gap"); list.appendChild(el); }
+  }catch(e){
+    if(req!==lbReq) return;
+    list.innerHTML=`<div class="lb-empty">Couldn't reach the leaderboard. Check your connection and try again.</div>`;
+  }
+}
+// Win card: today's locked result posts itself once a name is known; archive replays never post.
+// With no name yet, the name card opens over the result once per day.
+function lbAfterWin(){
+  const day=dayNumber(), box=$("lbJoin");
+  box.hidden=activeDay!==day;
+  if(box.hidden) return;
+  if(lbGet(LB_POSTED_KEY)===String(day)){ lbShowRank(day); return; }
+  if(lbName){ lbSubmit(day,lbLockedEntry(day)); return; }
+  lbShowJoinLink(day);
+  if(lbGet(LB_ASKED_KEY)===String(day)) return;
+  lbSet(LB_ASKED_KEY,String(day));
+  // let the score land first, then ask
+  celebrationTimers.push(setTimeout(()=>{
+    if(activeDay===day && $("modal").classList.contains("show")) openNameCard("join",day,lbLockedEntry(day));
+  },700));
+}
+function lbShowJoinLink(day){
+  $("lbJoinMsg").innerHTML=`You're not on today's leaderboard yet. <button class="lnk" type="button" id="lbAdd">Add your name</button>`;
+  $("lbAdd").onclick=()=>openNameCard("join",day,lbLockedEntry(day));
+}
+async function lbSubmit(day,entry){
+  const msg=$("lbJoinMsg");
+  entry=Object.assign({n:lbName},entry);
+  msg.textContent="Posting to today's leaderboard…";
+  try{ await lbPost(day,entry); await lbShowRank(day); }
+  catch(e){
+    msg.innerHTML=`Couldn't reach the leaderboard. <button class="lnk" type="button" id="lbRetry">Try again</button>`;
+    $("lbRetry").onclick=()=>lbSubmit(day,entry);
+  }
+}
+async function lbShowRank(day){
+  const msg=$("lbJoinMsg");
+  msg.textContent="Checking today's leaderboard…";
+  try{
+    const rows=await lbFetch(day), i=rows.findIndex(r=>r.pid===lbPid());
+    const tied=i>=0&&rows.some((r,j)=>j!==i&&r.rank===rows[i].rank);
+    msg.innerHTML=i<0?"You're on today's leaderboard.":`You're ${tied?"tied for ":""}<b>#${rows[i].rank}</b> of ${rows.length} on today's leaderboard.`;
+  }catch(e){ msg.textContent="You're on today's leaderboard."; }
+}
+
+/* Name card: one dedicated step for joining the board (mode "join", with the
+   result about to be posted shown as a preview row) and for renaming later. */
+let nameCtx=null;
+function renderNamePreview(){
+  const n=cleanName($("nameInput").value), ln=$("namePreview").querySelector(".ln");
+  ln.textContent=n||"Your name"; ln.classList.toggle("ph",!n);
+}
+function openNameCard(mode,day,entry){
+  nameCtx={mode,day,entry};
+  const join=mode==="join";
+  $("nameTitle").textContent=join?"Sign your circuit":"Change your name";
+  $("nameText").textContent=join?
+    "Pick a name to post today's result. Everyone who solves today's circuit is ranked by moves, then hints, then the easier clue.":
+    "This is the name other players see next to your result.";
+  $("nameSave").textContent=join?"Post to leaderboard":"Save name";
+  $("nameSkip").textContent=join?"Not now":"Cancel";
+  const pv=$("namePreview");
+  pv.hidden=!entry;
+  if(entry) lbFillRow(pv,entry);
+  $("nameInput").value=lbName; $("nameInput").classList.remove("shake");
+  renderNamePreview();
+  $("nameModal").classList.add("show");
+  setTimeout(()=>$("nameInput").focus(),60);
+}
+function closeNameCard(){ $("nameModal").classList.remove("show"); nameCtx=null; }
+$("nameInput").addEventListener("input",()=>{ $("nameInput").classList.remove("shake"); renderNamePreview(); });
+$("nameForm").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const input=$("nameInput"), n=cleanName(input.value);
+  if(!n){ input.classList.remove("shake"); void input.offsetWidth; input.classList.add("shake"); input.focus(); return; }
+  const ctx=nameCtx; if(!ctx) return;
+  lbSetName(n); closeNameCard();
+  if(ctx.mode==="join"){
+    if(ctx.day===dayNumber()) lbSubmit(ctx.day,ctx.entry);
+    return;
+  }
+  if(lbGet(LB_POSTED_KEY)===String(ctx.day)){
+    try{ const db=await lbDb(); await withTimeout(db.ref(`currents/daily/${ctx.day}/${lbPid()}/n`).set(n),LB_TIMEOUT); }
+    catch(err){ toast("Couldn't update your name",true); }
+  }
+  void markCurrentsVisit();
+  openLeaderboard(lbAgo);
+});
+$("nameSkip").addEventListener("click",closeNameCard);
+$("nameModal").addEventListener("click",e=>{ if(e.target.id==="nameModal") closeNameCard(); });
+$("lbBtn").addEventListener("click",()=>{ if(tutorialMode) return; openLeaderboard(); });
+$("lbJoinOpen").addEventListener("click",()=>openLeaderboard());
+document.querySelectorAll(".lb-tab").forEach(t=>t.addEventListener("click",()=>openLeaderboard(+t.dataset.ago)));
+$("lbClose").addEventListener("click",()=>$("lbModal").classList.remove("show"));
+$("lbModal").addEventListener("click",e=>{ if(e.target.id==="lbModal") $("lbModal").classList.remove("show"); });
 
 let toastTimer;
 function toast(msg,bad){
@@ -2271,6 +2611,7 @@ function loadDay(day){
 }
 activeDay=Math.max(0,dayNumber());   // default to today (clamped to launch day #1)
 init();
+void markCurrentsVisit();
 
 // First visit: launch the interactive tutorial once (over the now-ready real board).
 try{
