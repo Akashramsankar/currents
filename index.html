@@ -91,20 +91,21 @@
   .sub.meta:empty{display:none;}
 
   /* Corner icon buttons */
-  .help-btn,.cal-btn,.stats-btn,.theme-btn,.lb-btn{
+  .help-btn,.cal-btn,.stats-btn,.theme-btn,.lb-btn,.games-btn{
     position:absolute; top:calc(8px + var(--safe-top-inset));
     background:transparent; color:var(--ink); border:none;
     width:38px; height:38px; border-radius:999px; cursor:pointer;
     display:inline-flex; align-items:center; justify-content:center; line-height:1;
     z-index:10; transition:background .15s ease, color .15s ease;
   }
-  .help-btn:hover,.cal-btn:hover,.stats-btn:hover,.theme-btn:hover,.lb-btn:hover{background:var(--surface-2);}
+  .help-btn:hover,.cal-btn:hover,.stats-btn:hover,.theme-btn:hover,.lb-btn:hover,.games-btn:hover{background:var(--surface-2);}
   .help-btn{left:calc(-6px + var(--safe-left-inset)); font-family:var(--font-display); font-weight:800; font-size:1.15rem;}
   .cal-btn{left:calc(32px + var(--safe-left-inset));}
   .stats-btn{left:calc(70px + var(--safe-left-inset));}
   .theme-btn{right:-6px;}
   .lb-btn{right:32px;}
-  .cal-btn svg,.stats-btn svg,.theme-btn svg,.lb-btn svg{width:19px; height:19px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; pointer-events:none;}
+  .games-btn{right:70px;}
+  .cal-btn svg,.stats-btn svg,.theme-btn svg,.lb-btn svg,.games-btn svg{width:19px; height:19px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; pointer-events:none;}
   .theme-btn .ico-moon{display:none;}
   :root[data-theme="dark"] .theme-btn .ico-sun{display:none;}
   :root[data-theme="dark"] .theme-btn .ico-moon{display:inline-block;}
@@ -335,6 +336,29 @@
   /* archive list */
   .archive{max-height:86vh; overflow-y:auto;}
   .arch-sub{color:var(--ink-muted); font-size:.82rem; line-height:1.5; margin:0 0 14px;}
+  /* more games (as in Cascade and Typeset) */
+  .games{max-height:86vh; overflow-y:auto;}
+  .game-card{display:flex; align-items:center; gap:14px; width:100%; padding:14px 16px; margin-bottom:10px;
+    background:var(--surface-2); border:1px solid var(--rule); border-radius:var(--radius);
+    color:var(--ink); text-decoration:none; text-align:left; transition:border-color .15s, background .15s, transform .15s;}
+  .game-card:hover{border-color:var(--ink); background:var(--hover); transform:translateY(-1px);}
+  .game-card-mark{flex:0 0 44px; width:44px; height:44px; display:flex; align-items:center; justify-content:center;
+    border-radius:var(--radius); background:var(--accent-soft); color:var(--accent-ink);}
+  .game-card-body{flex:1; min-width:0;}
+  .game-card-title{display:block; font-family:var(--font-display); font-weight:800; font-size:1.05rem; line-height:1.2; margin-bottom:3px;}
+  .game-card-desc{display:block; font-size:.78rem; color:var(--ink-muted); line-height:1.35;}
+  .game-card-arrow{flex:0 0 auto; color:var(--ink-muted);}
+  .game-card svg{stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round;}
+  /* compact keep-playing row in the win card */
+  .win-more-games{margin:14px 0 0; padding-top:12px; border-top:1px solid var(--rule);}
+  .win-more-games .nl{display:block; font-size:.64rem; color:var(--ink-muted); letter-spacing:.1em; text-transform:uppercase; font-weight:600; margin-bottom:8px;}
+  .win-more-games-row{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+  .win-more-games-row > :last-child:nth-child(odd){grid-column:1 / -1;} /* an odd last link spans the row */
+  .win-game-link{display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:9px 10px;
+    border-radius:999px; background:var(--card); border:1px solid var(--rule); color:var(--ink);
+    font-size:.82rem; font-weight:600; text-decoration:none; transition:border-color .15s, background .15s;}
+  .win-game-link:hover{border-color:var(--ink); background:var(--hover);}
+  .win-game-link svg{width:14px; height:14px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round;}
   .arch-list{display:flex; flex-direction:column; gap:8px; margin-bottom:6px;}
   /* rows are <button>s, so these must outrank the .win button pill styles */
   .win .arch-row{display:flex; align-items:center; gap:12px; width:100%; text-align:left; margin:0;
@@ -525,6 +549,9 @@
         <path d="M7 6H4a3 3 0 0 0 3 4M17 6h3a3 3 0 0 1-3 4"></path>
       </svg>
     </button>
+    <button class="games-btn" id="gamesBtn" type="button" aria-label="More games" title="More games">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+    </button>
     <h1>Currents</h1>
     <div class="sub">Daily word circuit</div>
     <div class="sub meta" id="dateLabel"></div>
@@ -551,6 +578,54 @@
       <div class="arch-sub">Pick any past day to play it. Only today's solve counts toward your streak.</div>
       <div class="arch-list" id="archList"></div>
       <button id="archClose" class="secondary">Close</button>
+    </div>
+  </div>
+
+  <div class="modal" id="gamesModal">
+    <div class="win games">
+      <h2>More games</h2>
+      <div class="arch-sub">More daily word puzzles from the same workshop.</div>
+      <a class="game-card" href="https://akashramsankar.github.io/Tumbler/" target="_blank" rel="noopener">
+        <span class="game-card-mark"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/><circle cx="12" cy="15.5" r="1.5"/></svg></span>
+        <span class="game-card-body">
+          <span class="game-card-title">Tumbler</span>
+          <span class="game-card-desc">Crack the daily 4-letter code in 6 attempts. Follow the arrows and outsmart the vault.</span>
+        </span>
+        <svg class="game-card-arrow" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17L17 7"/><path d="M9 7h8v8"/></svg>
+      </a>
+      <a class="game-card" href="https://akashramsankar.github.io/TypeSet/" target="_blank" rel="noopener">
+        <span class="game-card-mark"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg></span>
+        <span class="game-card-body">
+          <span class="game-card-title">Typeset</span>
+          <span class="game-card-desc">Drag letter blocks into the 5×5 press until every row and column reads as a word.</span>
+        </span>
+        <svg class="game-card-arrow" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17L17 7"/><path d="M9 7h8v8"/></svg>
+      </a>
+      <a class="game-card" href="https://akashramsankar.github.io/pathword/" target="_blank" rel="noopener">
+        <span class="game-card-mark"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="2.5"/><path d="M3 12h6.5M14.5 12H21"/><path d="M3 19h18"/></svg></span>
+        <span class="game-card-body">
+          <span class="game-card-title">Pathword</span>
+          <span class="game-card-desc">Drop a marble through six shelves of letters. Wrong tiles tip the shelf toward the hidden word.</span>
+        </span>
+        <svg class="game-card-arrow" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17L17 7"/><path d="M9 7h8v8"/></svg>
+      </a>
+      <a class="game-card" href="https://akashramsankar.github.io/Cascade/" target="_blank" rel="noopener">
+        <span class="game-card-mark"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18"/><path d="M8 7l4-4 4 4"/><path d="M8 17l4 4 4-4"/></svg></span>
+        <span class="game-card-body">
+          <span class="game-card-title">Cascade</span>
+          <span class="game-card-desc">Vowels rise, consonants sink. Spell words to drop all three weights off the board.</span>
+        </span>
+        <svg class="game-card-arrow" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17L17 7"/><path d="M9 7h8v8"/></svg>
+      </a>
+      <a class="game-card" href="https://akashramsankar.github.io/fulcrum/" target="_blank" rel="noopener">
+        <span class="game-card-mark"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10h18"/><path d="M12 11l4 8H8z"/><rect x="4" y="5" width="4" height="5" rx="1"/></svg></span>
+        <span class="game-card-body">
+          <span class="game-card-title">Fulcrum</span>
+          <span class="game-card-desc">Build 3–5 letter words and place them on a tipped beam. Spend heavy letters wisely to level it.</span>
+        </span>
+        <svg class="game-card-arrow" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17L17 7"/><path d="M9 7h8v8"/></svg>
+      </a>
+      <button id="gamesClose" class="secondary">Close</button>
     </div>
   </div>
 
@@ -677,6 +752,16 @@
           <div class="scell"><b id="stMax">0</b><span>Max streak</span></div>
         </div>
         <div class="sdist" id="stDist"></div>
+      </div>
+      <div class="win-more-games">
+        <span class="nl">Keep playing</span>
+        <div class="win-more-games-row">
+          <a class="win-game-link" href="https://akashramsankar.github.io/Tumbler/" target="_blank" rel="noopener">Tumbler<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17L17 7"/><path d="M9 7h8v8"/></svg></a>
+          <a class="win-game-link" href="https://akashramsankar.github.io/TypeSet/" target="_blank" rel="noopener">Typeset<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17L17 7"/><path d="M9 7h8v8"/></svg></a>
+          <a class="win-game-link" href="https://akashramsankar.github.io/pathword/" target="_blank" rel="noopener">Pathword<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17L17 7"/><path d="M9 7h8v8"/></svg></a>
+          <a class="win-game-link" href="https://akashramsankar.github.io/Cascade/" target="_blank" rel="noopener">Cascade<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17L17 7"/><path d="M9 7h8v8"/></svg></a>
+          <a class="win-game-link" href="https://akashramsankar.github.io/fulcrum/" target="_blank" rel="noopener">Fulcrum<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17L17 7"/><path d="M9 7h8v8"/></svg></a>
+        </div>
       </div>
       <div class="share" id="share"></div>
       <button id="copyBtn">Share result</button>
@@ -2324,6 +2409,9 @@ function buildArchive(){
 $("calBtn").addEventListener("click",()=>{ if(tutorialMode) return; buildArchive(); $("archiveModal").classList.add("show"); });
 $("archClose").addEventListener("click",()=>$("archiveModal").classList.remove("show"));
 $("archiveModal").addEventListener("click",e=>{ if(e.target.id==="archiveModal") $("archiveModal").classList.remove("show"); });
+$("gamesBtn").addEventListener("click",()=>$("gamesModal").classList.add("show"));
+$("gamesClose").addEventListener("click",()=>$("gamesModal").classList.remove("show"));
+$("gamesModal").addEventListener("click",e=>{ if(e.target.id==="gamesModal") $("gamesModal").classList.remove("show"); });
 // first-time players get the interactive tutorial (launched after init, below)
 
 /* ---------------- Daily leaderboard ----------------
