@@ -523,37 +523,51 @@
 
   /* ==================== NEW GAME BANNER ==================== */
   .new-game-banner{
-    width:100%; max-width:420px; display:flex; align-items:center; gap:4px;
-    background:var(--surface);
-    border:1px solid var(--accent); border-radius:12px;
-    padding:4px 4px 4px 12px; box-sizing:border-box;
+    width:100%; max-width:420px; display:flex; align-items:stretch; gap:2px;
+    background:linear-gradient(135deg, var(--accent-soft), transparent 70%), var(--surface);
+    border:1px solid var(--accent); border-radius:14px;
+    padding:4px; box-sizing:border-box; position:relative;
     box-shadow:0 0 0 3px var(--accent-soft), 0 0 18px var(--spark-glow);
     animation:ngb-glow 2.8s ease-in-out infinite;
+    transition:transform .18s ease;
   }
+  .new-game-banner:hover{transform:translateY(-1px);}
   @keyframes ngb-glow{
     0%,100%{box-shadow:0 0 0 3px var(--accent-soft), 0 0 12px var(--spark-glow);}
     50%{box-shadow:0 0 0 4px var(--accent-soft), 0 0 26px var(--spark-glow);}
   }
   .new-game-banner[hidden]{display:none;}
   .ngb-link{
-    flex:1; min-width:0; display:flex; align-items:center; gap:10px;
-    color:var(--ink-soft); text-decoration:none; font-size:.85rem; line-height:1.3; padding:6px 0;
+    flex:1; min-width:0; display:flex; align-items:center; gap:12px;
+    color:var(--ink-soft); text-decoration:none; padding:8px 6px 8px 8px; border-radius:10px;
   }
-  .ngb-link b{color:var(--ink); font-weight:700;}
-  .ngb-link:hover .ngb-text{text-decoration:underline; text-underline-offset:2px;}
-  .ngb-tag{
-    flex:none; font-size:.62rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase;
-    color:#fff; background:var(--accent-solid); border-radius:999px; padding:3px 8px;
-    box-shadow:0 0 10px var(--spark-glow);
+  .ngb-link:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+  .ngb-icon{
+    flex:none; width:38px; height:38px; border-radius:10px; display:inline-flex; align-items:center; justify-content:center;
+    background:var(--accent-solid); color:#fff; box-shadow:0 0 12px var(--spark-glow);
   }
-  .ngb-text{flex:1; min-width:0;}
+  .ngb-text{flex:1; min-width:0; display:flex; flex-direction:column; gap:2px;}
+  .ngb-eyebrow{font-size:.62rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--accent-ink);}
+  .ngb-title{font-family:var(--font-display); font-size:1rem; font-weight:600; line-height:1.2; color:var(--ink);}
+  .ngb-link:hover .ngb-title{text-decoration:underline; text-decoration-color:var(--accent); text-underline-offset:3px;}
+  .ngb-cta{
+    flex:none; display:inline-flex; align-items:center; gap:4px;
+    font-size:.78rem; font-weight:700; color:#fff; background:var(--accent-solid);
+    border-radius:999px; padding:8px 12px 8px 14px; white-space:nowrap;
+    transition:background .15s ease, box-shadow .15s ease;
+  }
+  .ngb-link:hover .ngb-cta{box-shadow:0 0 0 3px var(--accent-soft), 0 0 14px var(--spark-glow);}
+  .ngb-cta svg{transition:transform .18s ease;}
+  .ngb-link:hover .ngb-cta svg{transform:translateX(3px);}
   .ngb-link svg,.ngb-close svg{width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; flex:none;}
-  .ngb-link svg{color:var(--accent-ink);}
+  .ngb-icon svg{width:20px; height:20px;}
   .ngb-close{
-    flex:none; width:32px; height:32px; border:none; background:transparent; color:var(--ink-muted);
-    border-radius:999px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center;
+    flex:none; width:26px; border:none; background:transparent; color:var(--ink-faint);
+    border-radius:8px; cursor:pointer; display:inline-flex; align-items:flex-start; justify-content:center; padding-top:6px;
   }
+  .ngb-close svg{width:13px; height:13px;}
   .ngb-close:hover{background:var(--surface-2); color:var(--ink);}
+  @media (max-width:360px){ .ngb-icon{display:none;} }
 </style>
 </head>
 <body>
@@ -592,10 +606,13 @@
   </header>
 
   <div class="new-game-banner" id="newGameBanner">
-    <a class="ngb-link" href="https://sardrafts.substack.com/" target="_blank" rel="noopener">
-      <span class="ngb-tag">Blog</span>
-      <span class="ngb-text">How a <b>Currents</b> puzzle gets made — notes from the maker</span>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17L17 7"/><path d="M9 7h8v8"/></svg>
+    <a class="ngb-link" href="https://sardrafts.substack.com/" target="_blank" rel="noopener" aria-label="Read the blog post: how each Currents puzzle is built">
+      <span class="ngb-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span>
+      <span class="ngb-text">
+        <span class="ngb-eyebrow">New post · from the maker</span>
+        <span class="ngb-title">Behind the scenes: how each Currents puzzle is built</span>
+      </span>
+      <span class="ngb-cta">Read it<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg></span>
     </a>
     <button class="ngb-close" type="button" aria-label="Dismiss blog banner" title="Dismiss"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
   </div>
